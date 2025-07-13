@@ -179,4 +179,83 @@ class DatabaseManager:
             return True
         except Exception as e:
             print(f"数据库连接测试失败: {e}")
-            return False 
+            return False
+    
+    def get_latest_qishu(self):
+        """获取最新期数"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT MAX(qishu) as latest_qishu FROM antapp_lotterydraw")
+                    result = cursor.fetchone()
+                    if result and result['latest_qishu'] is not None:
+                        return int(result['latest_qishu'])
+                    return None
+        except Exception as e:
+            print(f"获取最新期数错误: {e}")
+            return None
+    
+    def save_recommendation(self, qishu, recommend_numbers, strategy="第七码高频推荐"):
+        """保存推荐记录"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    # 检查是否已存在该期数的推荐
+                    cursor.execute("SELECT id FROM number8_recommendations WHERE qishu = %s", (qishu,))
+                    existing = cursor.fetchone()
+                    
+                    if existing:
+                        # 更新现有记录
+                        cursor.execute("""
+                            UPDATE number8_recommendations 
+                            SET recommend_numbers = %s, strategy = %s, extra = %s, created_at = CURRENT_TIMESTAMP
+                            WHERE qishu = %s
+                        """, (recommend_numbers, strategy, "最新系统推荐8码", qishu))
+                    else:
+                        # 插入新记录
+                        cursor.execute("""
+                            INSERT INTO number8_recommendations (qishu, recommend_numbers, strategy, extra)
+                            VALUES (%s, %s, %s, %s)
+                        """, (qishu, recommend_numbers, strategy, "最新系统推荐8码"))
+                    
+                    conn.commit()
+                    print(f"推荐记录已保存: 期数{qishu}, 推荐号码{recommend_numbers}")
+                    return True
+                    
+        except Exception as e:
+            print(f"保存推荐记录错误: {e}")
+            traceback.print_exc()
+            return False
+    
+    def get_recommendation_by_qishu(self, qishu):
+        """根据期数获取推荐记录"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT * FROM number8_recommendations 
+                        WHERE qishu = %s 
+                        ORDER BY created_at DESC 
+                        LIMIT 1
+                    """, (qishu,))
+                    result = cursor.fetchone()
+                    return result
+        except Exception as e:
+            print(f"获取推荐记录错误: {e}")
+            return None
+    
+    def get_latest_recommendation(self):
+        """获取最新推荐记录"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT * FROM number8_recommendations 
+                        ORDER BY qishu DESC 
+                        LIMIT 1
+                    """)
+                    result = cursor.fetchone()
+                    return result
+        except Exception as e:
+            print(f"获取最新推荐记录错误: {e}")
+            return None 

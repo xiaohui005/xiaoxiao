@@ -111,7 +111,7 @@ python app_optimized.py
 | `/api/recent` | GET | 最近开奖数据 |
 | `/api/statistics` | GET | 统计数据 |
 | `/api/analysis` | GET | 分析数据 |
-| `/api/frequency` | GET | 号码频率 |
+| `/api/seventh-number-recommendation` | GET | 第七码高频推荐 |
 | `/api/hot-cold` | GET | 冷热号码 |
 | `/api/trends` | GET | 趋势分析 |
 | `/api/combinations` | GET | 组合分析 |

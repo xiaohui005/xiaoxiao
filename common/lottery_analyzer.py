@@ -239,4 +239,130 @@ class LotteryAnalyzer:
             }
         except Exception as e:
             print(f"综合分析错误: {e}")
-            return {'error': str(e)} 
+            return {'error': str(e)}
+    
+    def get_seventh_number_recommendation(self):
+        """获取第七码高频推荐分析"""
+        if self.data.empty:
+            return {}
+        
+        try:
+            # 确保数据按时间倒序排列（最新的在前面）
+            sorted_data = self.data.sort_values('qishu', ascending=False).reset_index(drop=True)
+            
+            # 获取第七码数据
+            seventh_numbers = sorted_data['number7'].tolist() if 'number7' in sorted_data.columns else []
+            
+            if not seventh_numbers:
+                return {'error': '没有找到第七码数据'}
+            
+            # 统计每个号码的出现次数
+            frequency = Counter(seventh_numbers)
+            
+            # 计算每个号码的平均间隔
+            intervals = {}
+            for number in frequency.keys():
+                positions = [i for i, num in enumerate(seventh_numbers) if num == number]
+                if len(positions) > 1:
+                    gaps = [positions[i] - positions[i-1] for i in range(1, len(positions))]
+                    avg_interval = sum(gaps) / len(gaps)
+                else:
+                    avg_interval = len(seventh_numbers)
+                intervals[number] = round(avg_interval, 1)
+            
+            # 计算高频（出现次数前2）、热门（最近10期出现过）、间隔优选（最接近5期的2个）
+            freq_sorted = sorted(frequency.items(), key=lambda x: x[1], reverse=True)
+            high_freq_numbers = set([num for num, _ in freq_sorted[:2]])
+            recent_10 = seventh_numbers[:10]
+            hot_numbers = set([num for num in set(recent_10)])
+            interval_sorted = sorted(intervals.items(), key=lambda x: abs(x[1] - 5))
+            best_interval_numbers = set([num for num, _ in interval_sorted[:2]])
+            
+            # 创建推荐列表，结合频率和间隔
+            recommendations = []
+            for number, freq in frequency.items():
+                avg_interval = intervals.get(number, 0)
+                freq_score = freq / max(frequency.values()) if max(frequency.values()) > 0 else 0
+                interval_score = 1 - abs(avg_interval - 5) / 10
+                interval_score = max(0, min(1, interval_score))
+                total_score = freq_score * 0.6 + interval_score * 0.4
+                # 推荐原因
+                if number in high_freq_numbers:
+                    reason = "高频"
+                elif number in hot_numbers:
+                    reason = "近期热门"
+                elif number in best_interval_numbers:
+                    reason = "间隔优选"
+                else:
+                    reason = "综合推荐"
+                recommendations.append({
+                    'number': number,
+                    'frequency': freq,
+                    'avg_interval': avg_interval,
+                    'score': round(total_score, 3),
+                    'reason': reason
+                })
+            recommendations.sort(key=lambda x: x['score'], reverse=True)
+            top_recommendations = recommendations[:8]
+            return {
+                'recommendations': top_recommendations,
+                'total_analyzed': len(seventh_numbers),
+                'unique_numbers': len(frequency),
+                'analysis_period': '近50期'
+            }
+        except Exception as e:
+            print(f"第七码推荐分析错误: {e}")
+            return {'error': str(e)}
+    
+    def get_smart_recommendation(self, current_qishu):
+        """获取智能推荐（根据期数尾数决定策略）"""
+        if self.data.empty:
+            return {}
+        
+        try:
+            # 检查当前期数尾数
+            qishu_tail = current_qishu % 10
+            
+            # 如果是0或5尾数，生成新的推荐
+            if qishu_tail in [0, 5]:
+                print(f"期数{current_qishu}尾数为{qishu_tail}，生成新推荐")
+                return self.get_seventh_number_recommendation()
+            else:
+                # 否则使用最接近的0或5尾数期数的推荐
+                # 找到最接近的0或5尾数期数
+                closest_qishu = self._find_closest_recommendation_qishu(current_qishu)
+                print(f"期数{current_qishu}使用期数{closest_qishu}的推荐")
+                
+                return {
+                    'recommendations': [],  # 这里需要从数据库获取
+                    'reference_qishu': closest_qishu,
+                    'strategy': '使用历史推荐',
+                    'message': f'使用期数{closest_qishu}的推荐'
+                }
+                
+        except Exception as e:
+            print(f"智能推荐分析错误: {e}")
+            return {'error': str(e)}
+    
+    def _find_closest_recommendation_qishu(self, current_qishu):
+        """找到最接近的0或5尾数期数"""
+        try:
+            # 获取所有期数
+            all_qishu = self.data['qishu'].tolist()
+            
+            # 确保所有期数都是整数
+            all_qishu = [int(q) for q in all_qishu if q is not None]
+            
+            # 找到所有0或5尾数的期数
+            recommendation_qishu = [q for q in all_qishu if q % 10 in [0, 5]]
+            
+            if not recommendation_qishu:
+                return current_qishu
+            
+            # 找到最接近当前期数的推荐期数
+            closest_qishu = min(recommendation_qishu, key=lambda x: abs(x - current_qishu))
+            return closest_qishu
+            
+        except Exception as e:
+            print(f"查找最接近推荐期数错误: {e}")
+            return current_qishu 

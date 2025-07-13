@@ -109,7 +109,7 @@ python app_demo.py
 - `GET /api/recent` - 最近开奖数据
 - `GET /api/statistics` - 统计数据
 - `GET /api/analysis` - 分析数据
-- `GET /api/frequency` - 号码频率
+- `GET /api/seventh-number-recommendation` - 第七码高频推荐
 - `GET /api/hot-cold` - 冷热号码
 - `GET /api/trends` - 趋势分析
 - `GET /api/combinations` - 组合分析

@@ -178,6 +178,41 @@
             border-radius: 15px;
             font-size: 12px;
         }
+        
+        .recommendation-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .recommendation-list .frequency-item {
+            border-left: 4px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .recommendation-list .frequency-item:hover {
+            background: #f8f9fa;
+            border-left-color: #667eea;
+        }
+        
+        .recommendation-list .top-rank {
+            border-left-color: #ffc107;
+            background: rgba(255, 193, 7, 0.1);
+        }
+        
+        .recommendation-list .frequency-item:nth-child(1) {
+            border-left-color: #dc3545;
+            background: rgba(220, 53, 69, 0.1);
+        }
+        
+        .recommendation-list .frequency-item:nth-child(2) {
+            border-left-color: #fd7e14;
+            background: rgba(253, 126, 20, 0.1);
+        }
+        
+        .recommendation-list .frequency-item:nth-child(3) {
+            border-left-color: #ffc107;
+            background: rgba(255, 193, 7, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -226,7 +261,7 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="frequency-tab" data-bs-toggle="tab" data-bs-target="#frequency" type="button" role="tab">
-                        <i class="fas fa-chart-pie"></i> 号码频率
+                        <i class="fas fa-star"></i> 第七码推荐
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -279,18 +314,12 @@
                     </div>
                 </div>
 
-                <!-- 号码频率 -->
+                <!-- 第七码高频推荐 -->
                 <div class="tab-pane fade" id="frequency" role="tabpanel">
                     <div class="row">
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <div class="chart-container">
-                                <h4><i class="fas fa-chart-bar"></i> 号码出现频率 (前20)</h4>
-                                <canvas id="frequencyChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="chart-container">
-                                <h4><i class="fas fa-list"></i> 频率详情</h4>
+                                <h4><i class="fas fa-star"></i> 推荐详情</h4>
                                 <div id="frequencyDetails"></div>
                             </div>
                         </div>
@@ -633,91 +662,89 @@
             });
         });
 
-        // 加载频率数据
+        // 加载第七码高频推荐数据
         async function loadFrequency() {
             try {
-                const response = await fetch('/api/frequency');
+                const response = await fetch('/api/seventh-number-recommendation');
                 const result = await response.json();
                 
                 if (result.success) {
-                    createFrequencyCharts(result.data);
-                    displayFrequencyDetails(result.data);
+                    // 将策略信息添加到数据中
+                    const dataWithStrategy = {
+                        ...result.data,
+                        strategy: result.strategy || '第七码高频推荐',
+                        current_qishu: result.current_qishu,
+                        reference_qishu: result.reference_qishu
+                    };
+                    
+                    displaySeventhNumberDetails(dataWithStrategy);
                 }
             } catch (error) {
-                console.error('加载频率数据失败:', error);
+                console.error('加载第七码推荐数据失败:', error);
             }
         }
 
-        // 创建频率图表
-        function createFrequencyCharts(data) {
-            const frequencyCtx = document.getElementById('frequencyChart').getContext('2d');
-            if (charts.frequency) {
-                charts.frequency.destroy();
-            }
-            
-            const mostCommon = data.most_common || {};
-            const labels = Object.keys(mostCommon);
-            const values = Object.values(mostCommon);
-            
-            // 根据号码设置颜色
-            const colors = labels.map(num => {
-                const colorClass = getNumberColorClass(parseInt(num));
-                if (colorClass === 'red') return 'rgba(255, 71, 87, 0.8)';
-                if (colorClass === 'green') return 'rgba(46, 213, 115, 0.8)';
-                if (colorClass === 'blue') return 'rgba(55, 66, 250, 0.8)';
-                return 'rgba(255, 107, 107, 0.8)'; // 默认红色
-            });
-            
-            charts.frequency = new Chart(frequencyCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '出现次数',
-                        data: values,
-                        backgroundColor: colors,
-                        borderColor: colors.map(color => color.replace('0.8', '1')),
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-
-        // 显示频率详情
-        function displayFrequencyDetails(data) {
+        // 显示第七码推荐详情
+        function displaySeventhNumberDetails(data) {
             const container = document.getElementById('frequencyDetails');
-            const frequency = data.frequency || {};
+            const recommendations = data.recommendations || [];
             
-            let html = '<div class="row">';
-            html += '<div class="col-md-6"><h5>出现最多</h5>';
+            let html = '<div class="recommendation-list">';
+            html += '<h5>推荐号码详情</h5>';
             
-            Object.entries(frequency).slice(0, 10).forEach(([number, count]) => {
-                const colorClass = getNumberColorClass(parseInt(number));
-                html += `<div class="frequency-item">
-                    <span class="lottery-number ${colorClass}" style="width: 30px; height: 30px; line-height: 30px; font-size: 12px;">${number}</span>
-                    <span class="frequency-count">${count}次</span>
+            // 显示策略信息
+            if (data.strategy) {
+                html += `<div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle"></i> <strong>推荐策略:</strong> ${data.strategy}
                 </div>`;
+            }
+            
+            recommendations.forEach((item, index) => {
+                const colorClass = getNumberColorClass(parseInt(item.number));
+                const rankClass = index < 3 ? 'top-rank' : '';
+                
+                html += `<div class="frequency-item ${rankClass}">`;
+                html += `<div class="d-flex align-items-center justify-content-between">`;
+                html += `<div class="d-flex align-items-center">`;
+                html += `<span class="lottery-number ${colorClass}" style="width: 35px; height: 35px; line-height: 35px; font-size: 14px; margin-right: 10px;">${item.number}</span>`;
+                html += `<div>`;
+                html += `<div class="fw-bold">第${index + 1}推荐</div>`;
+                if (item.frequency > 0) {
+                    html += `<small class="text-muted">出现${item.frequency}次</small>`;
+                } else {
+                    html += `<small class="text-muted">历史推荐</small>`;
+                }
+                // 推荐原因
+                if (item.reason) {
+                    html += `<div class='badge bg-info text-dark ms-1'>推荐原因：${item.reason}</div>`;
+                }
+                html += `</div>`;
+                html += `</div>`;
+                html += `<div class="text-end">`;
+                if (item.avg_interval > 0) {
+                    html += `<div class="fw-bold text-primary">${item.avg_interval}期</div>`;
+                    html += `<small class="text-muted">平均间隔</small>`;
+                } else {
+                    html += `<div class="fw-bold text-success">推荐</div>`;
+                    html += `<small class="text-muted">历史数据</small>`;
+                }
+                html += `</div>`;
+                html += `</div>`;
+                html += `</div>`;
             });
             
-            html += '</div><div class="col-md-6"><h5>出现最少</h5>';
+            html += '</div>';
             
-            Object.entries(frequency).slice(-10).reverse().forEach(([number, count]) => {
-                const colorClass = getNumberColorClass(parseInt(number));
-                html += `<div class="frequency-item">
-                    <span class="lottery-number ${colorClass}" style="width: 30px; height: 30px; line-height: 30px; font-size: 12px;">${number}</span>
-                    <span class="frequency-count">${count}次</span>
-                </div>`;
-            });
+            // 添加说明文字
+            html += '<div class="mt-3 p-3 bg-light rounded">';
+            html += '<h6><i class="fas fa-info-circle"></i> 推荐说明</h6>';
+            html += '<ul class="mb-0 small">';
+            html += '<li>本推荐基于近50期第七码的历史开奖数据，统计出现频率和平均间隔，优先选择每5期左右出现一次且近期活跃的号码。</li>';
+            html += '<li>每逢0、5尾数期数自动生成新推荐，其它期数则采用最近的0或5尾数期的推荐结果。</li>';
+            html += '<li>仅供娱乐参考，请理性购彩。</li>';
+            html += '</ul>';
+            html += '</div>';
             
-            html += '</div></div>';
             container.innerHTML = html;
         }
 
