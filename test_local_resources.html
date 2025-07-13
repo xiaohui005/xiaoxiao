@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地资源测试</title>
+    <link href="static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="static/css/font-awesome-local.css" rel="stylesheet">
+    <link href="static/css/icons.css" rel="stylesheet">
+    <script src="static/js/chart.js"></script>
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .icon-test {
+            font-size: 24px;
+            margin: 10px;
+        }
+        .chart-container {
+            width: 400px;
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>本地资源测试页面</h1>
+        
+        <div class="test-section">
+            <h3>Bootstrap 测试</h3>
+            <button class="btn btn-primary">主要按钮</button>
+            <button class="btn btn-success">成功按钮</button>
+            <button class="btn btn-danger">危险按钮</button>
+            <div class="alert alert-info mt-3">
+                这是一个 Bootstrap 警告框
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Font Awesome 图标测试</h3>
+            <div class="icon-test">
+                <i class="fas fa-home"></i> 首页
+                <i class="fas fa-chart-line"></i> 图表
+                <i class="fas fa-database"></i> 数据库
+                <i class="fas fa-cog"></i> 设置
+                <i class="fas fa-user"></i> 用户
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>SVG 图标测试</h3>
+            <div class="icon-test">
+                <svg class="icon icon-primary">
+                    <use href="static/icons/svg/home.svg"></use>
+                </svg> 首页
+                <svg class="icon icon-chart">
+                    <use href="static/icons/svg/chart-line.svg"></use>
+                </svg> 图表
+                <svg class="icon icon-data">
+                    <use href="static/icons/svg/database.svg"></use>
+                </svg> 数据库
+                <svg class="icon icon-analysis">
+                    <use href="static/icons/svg/settings.svg"></use>
+                </svg> 设置
+                <svg class="icon icon-success">
+                    <use href="static/icons/svg/user.svg"></use>
+                </svg> 用户
+            </div>
+            <div class="icon-test">
+                <svg class="icon icon-lg icon-danger">
+                    <use href="static/icons/svg/fire.svg"></use>
+                </svg> 热号
+                <svg class="icon icon-lg icon-info">
+                    <use href="static/icons/svg/search.svg"></use>
+                </svg> 搜索
+                <svg class="icon icon-lg icon-warning">
+                    <use href="static/icons/svg/sync.svg"></use>
+                </svg> 同步
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Chart.js 测试</h3>
+            <div class="chart-container">
+                <canvas id="testChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 测试 Chart.js
+        const ctx = document.getElementById('testChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['红色', '绿色', '蓝色'],
+                datasets: [{
+                    label: '测试数据',
+                    data: [12, 19, 3],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(54, 162, 235, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(54, 162, 235, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html> 

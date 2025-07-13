@@ -1,0 +1,169 @@
+/* 图标样式 */
+.icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+    fill: currentColor;
+    overflow: hidden;
+}
+
+.icon-sm {
+    width: 0.875em;
+    height: 0.875em;
+}
+
+.icon-lg {
+    width: 1.33em;
+    height: 1.33em;
+}
+
+.icon-xl {
+    width: 1.5em;
+    height: 1.5em;
+}
+
+.icon-2x {
+    width: 2em;
+    height: 2em;
+}
+
+.icon-3x {
+    width: 3em;
+    height: 3em;
+}
+
+/* 图标颜色 */
+.icon-primary {
+    color: #007bff;
+}
+
+.icon-success {
+    color: #28a745;
+}
+
+.icon-info {
+    color: #17a2b8;
+}
+
+.icon-warning {
+    color: #ffc107;
+}
+
+.icon-danger {
+    color: #dc3545;
+}
+
+.icon-light {
+    color: #f8f9fa;
+}
+
+.icon-dark {
+    color: #343a40;
+}
+
+/* 图标动画 */
+.icon-spin {
+    animation: icon-spin 2s linear infinite;
+}
+
+@keyframes icon-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.icon-pulse {
+    animation: icon-pulse 1s steps(8) infinite;
+}
+
+@keyframes icon-pulse {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* 图标背景 */
+.icon-bg {
+    padding: 0.5em;
+    border-radius: 0.25em;
+}
+
+.icon-bg-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.icon-bg-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.icon-bg-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.icon-bg-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.icon-bg-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* 图标边框 */
+.icon-border {
+    border: 1px solid currentColor;
+    border-radius: 0.25em;
+    padding: 0.25em;
+}
+
+/* 图标列表 */
+.icon-list {
+    list-style: none;
+    padding: 0;
+}
+
+.icon-list li {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.icon-list .icon {
+    margin-right: 0.5rem;
+}
+
+/* 响应式图标 */
+@media (max-width: 768px) {
+    .icon-responsive {
+        width: 0.75em;
+        height: 0.75em;
+    }
+}
+
+/* 特殊图标样式 */
+.icon-lottery {
+    color: #e74c3c;
+}
+
+.icon-chart {
+    color: #3498db;
+}
+
+.icon-data {
+    color: #2ecc71;
+}
+
+.icon-analysis {
+    color: #f39c12;
+} 
