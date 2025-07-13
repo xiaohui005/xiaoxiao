@@ -89,11 +89,12 @@ def get_combinations():
             return jsonify({'error': '没有找到数据'}), 404
         
         analyzer = LotteryAnalyzer(data)
-        combinations_data = analyzer.get_combination_analysis()
-        
+        # 新增：支持target_col参数，默认7
+        target_col = request.args.get('target_col', 7, type=int)
+        custom_result = analyzer.get_custom_group_analysis(target_col=target_col)
         return jsonify({
             'success': True,
-            'data': combinations_data
+            'data': custom_result
         })
     
     except Exception as e:

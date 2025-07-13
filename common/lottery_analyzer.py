@@ -366,3 +366,108 @@ class LotteryAnalyzer:
         except Exception as e:
             print(f"查找最接近推荐期数错误: {e}")
             return current_qishu 
+
+    def get_custom_group_analysis(self, target_col=7):
+        """
+        组合分析：
+        - 组1：尾数0,1,2,3,4，去掉11,22,33,44
+        - 组2：尾数5,6,7,8，去掉所有9尾
+        - 统计目标码（默认第7个码）属于哪组，遗漏和连续命中
+        """
+        if self.data.empty:
+            return {}
+        try:
+            # 按qishu升序排序
+            if 'qishu' in self.data.columns:
+                sorted_data = self.data.sort_values('qishu', ascending=True).reset_index(drop=True)
+            else:
+                sorted_data = self.data.reset_index(drop=True)
+            # 生成组1和组2号码集合
+            group1 = set()
+            group2 = set()
+            for n in range(1, 50):
+                tail = n % 10
+                if tail in [0,1,2,3,4] and n not in [11,22,33,44]:
+                    group1.add(n)
+                if tail in [5,6,7,8] and tail != 9:
+                    group2.add(n)
+            # 目标码列
+            col = f'number{target_col}'
+            if col not in sorted_data.columns:
+                return {'error': f'未找到{col}列'}
+            # 统计每期目标码属于哪组
+            group_seq = []
+            qishu_list = sorted_data['qishu'].tolist() if 'qishu' in sorted_data.columns else []
+            target_number_list = sorted_data[col].tolist() if col in sorted_data.columns else []
+            draw_time_list = sorted_data['draw_time'].tolist() if 'draw_time' in sorted_data.columns else []
+            for num in sorted_data[col]:
+                if num in group1:
+                    group_seq.append(1)
+                elif num in group2:
+                    group_seq.append(2)
+                else:
+                    group_seq.append(0)  # 不属于任何组
+            # 统计遗漏和连续命中（并记录每期的当前连中/遗漏）
+            result = {'group1': {'miss': [], 'hit': []}, 'group2': {'miss': [], 'hit': []}}
+            detail_rows = []
+            g1_hit = g1_miss = g2_hit = g2_miss = 0
+            for i, g in enumerate(group_seq):
+                # 组1
+                if g == 1:
+                    g1_hit += 1
+                    if g1_miss > 0:
+                        result['group1']['miss'].append(g1_miss)
+                        g1_miss = 0
+                else:
+                    g1_miss += 1
+                    if g1_hit > 0:
+                        result['group1']['hit'].append(g1_hit)
+                        g1_hit = 0
+                # 组2
+                if g == 2:
+                    g2_hit += 1
+                    if g2_miss > 0:
+                        result['group2']['miss'].append(g2_miss)
+                        g2_miss = 0
+                else:
+                    g2_miss += 1
+                    if g2_hit > 0:
+                        result['group2']['hit'].append(g2_hit)
+                        g2_hit = 0
+                # 记录本期
+                detail_rows.append({
+                    'qishu': qishu_list[i] if i < len(qishu_list) else '',
+                    'draw_time': str(draw_time_list[i]) if i < len(draw_time_list) else '',
+                    'number': target_number_list[i] if i < len(target_number_list) else '',
+                    'group': g,
+                    'g1_hit': g1_hit if g == 1 else 0,
+                    'g2_hit': g2_hit if g == 2 else 0,
+                    'g1_miss': g1_miss if g != 1 else 0,
+                    'g2_miss': g2_miss if g != 2 else 0
+                })
+            # 收尾
+            if g1_miss > 0:
+                result['group1']['miss'].append(g1_miss)
+            if g1_hit > 0:
+                result['group1']['hit'].append(g1_hit)
+            if g2_miss > 0:
+                result['group2']['miss'].append(g2_miss)
+            if g2_hit > 0:
+                result['group2']['hit'].append(g2_hit)
+            # 当前期属于哪组
+            current_group = group_seq[0] if group_seq else 0
+            return {
+                'group1_numbers': sorted(list(group1)),
+                'group2_numbers': sorted(list(group2)),
+                'target_col': col,
+                'current_group': current_group,
+                'group_seq': group_seq,
+                'qishu_list': qishu_list,
+                'target_number_list': target_number_list,
+                'draw_time_list': draw_time_list,
+                'result': result,
+                'detail_rows': detail_rows
+            }
+        except Exception as e:
+            print(f"自定义组合分析错误: {e}")
+            return {'error': str(e)} 
