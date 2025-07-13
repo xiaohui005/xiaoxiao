@@ -213,6 +213,107 @@
             border-left-color: #ffc107;
             background: rgba(255, 193, 7, 0.1);
         }
+        /* 组合分析美化 */
+        .group-balls {
+            margin: 8px 0 12px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .group-balls-label {
+            font-weight: bold;
+            margin-right: 8px;
+            min-width: 110px;
+        }
+        .group-balls .lottery-number {
+            width: 32px;
+            height: 32px;
+            line-height: 32px;
+            font-size: 13px;
+            margin: 1px 2px;
+        }
+        .group-stat-card {
+            background: linear-gradient(135deg, #f8fafc 60%, #e0e7ff 100%);
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(102,126,234,0.08);
+            margin-bottom: 12px;
+            border: 1px solid #e0e7ff;
+        }
+        .group-stat-card h6 {
+            color: #667eea;
+            font-weight: bold;
+        }
+        .group-stat-card .stat-label {
+            color: #555;
+            font-size: 13px;
+        }
+        .combinations-divider {
+            border-top: 2px dashed #764ba2;
+            margin: 18px 0 18px 0;
+        }
+        .miss-detail-table-wrap {
+            background: #f8f9fa;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(102,126,234,0.08);
+            padding: 18px 12px 8px 12px;
+        }
+        #exportDetailCSVBtn {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: #222;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(67,233,123,0.12);
+        }
+        #exportDetailCSVBtn:hover {
+            background: linear-gradient(135deg, #38f9d7 0%, #43e97b 100%);
+            color: #111;
+        }
+        .comb-filter-card {
+            background: linear-gradient(135deg, #f8fafc 60%, #e0e7ff 100%);
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(102,126,234,0.10);
+            padding: 18px 24px 10px 24px;
+            margin-bottom: 18px;
+            border: 1px solid #e0e7ff;
+        }
+        .comb-filter-card label {
+            font-weight: bold;
+            color: #4f4f8f;
+        }
+        .comb-filter-card .form-select {
+            min-width: 120px;
+        }
+        .comb-filter-card .btn-primary {
+            margin-top: 8px;
+        }
+        .miss-detail-table-wrap {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 12px rgba(102,126,234,0.10);
+            padding: 18px 12px 8px 12px;
+            margin-top: 10px;
+        }
+        .miss-detail-table-wrap .table thead.table-dark th {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
+            color: #fff;
+            border: none;
+        }
+        .miss-detail-table-wrap .table tbody tr:hover {
+            background: #f0f4ff;
+            transition: background 0.2s;
+        }
+        .miss-detail-table-wrap .table-bordered {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .miss-detail-table-wrap .d-flex .btn {
+            min-width: 90px;
+        }
+        .miss-detail-table-wrap .d-flex span {
+            font-weight: bold;
+            color: #667eea;
+        }
     </style>
 </head>
 <body>
@@ -376,16 +477,35 @@
 
                 <!-- 组合分析 -->
                 <div class="tab-pane fade" id="combinations" role="tabpanel">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="chart-container">
-                                <h4><i class="fas fa-percentage"></i> 组合统计</h4>
-                                <canvas id="combinationsChart"></canvas>
+                    <div class="comb-filter-card">
+                        <div class="row mb-2">
+                            <div class="col-md-3">
+                                <label for="combTargetCol" class="form-label">分析号码位置</label>
+                                <select class="form-select" id="combTargetCol">
+                                    <option value="1">第1个码</option>
+                                    <option value="2">第2个码</option>
+                                    <option value="3">第3个码</option>
+                                    <option value="4">第4个码</option>
+                                    <option value="5">第5个码</option>
+                                    <option value="6">第6个码</option>
+                                    <option value="7" selected>第7个码</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="combYear" class="form-label">年份</label>
+                                <select class="form-select" id="combYear">
+                                    <option value="all">全部</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button class="btn btn-primary ms-2" onclick="loadCombinations()"><i class="fas fa-sync"></i> 刷新分析</button>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
                             <div class="chart-container">
-                                <h4><i class="fas fa-info-circle"></i> 组合详情</h4>
+                                <h4><i class="fas fa-info-circle"></i> 组合分析结果</h4>
                                 <div id="combinationsDetails"></div>
                             </div>
                         </div>
@@ -902,17 +1022,43 @@
         // 加载组合分析
         async function loadCombinations() {
             try {
-                const response = await fetch('/api/combinations');
+                const targetCol = document.getElementById('combTargetCol').value;
+                const year = document.getElementById('combYear').value;
+                const response = await fetch(`/api/combinations?target_col=${targetCol}`);
                 const result = await response.json();
-                
                 if (result.success) {
-                    createCombinationsChart(result.data);
-                    displayCombinationsDetails(result.data);
+                    // 前端按年份筛选
+                    let data = result.data;
+                    if (year !== 'all') {
+                        // 只保留该年份明细
+                        const yearStr = year + '';
+                        data.detail_rows = (data.detail_rows||[]).filter(r => (r.qishu||'').toString().startsWith(yearStr));
+                    }
+                    displayCombinationsDetails(data);
                 }
             } catch (error) {
                 console.error('加载组合数据失败:', error);
             }
         }
+        // 动态填充年份下拉框
+        async function fillCombYearOptions() {
+            try {
+                const response = await fetch('/api/data?limit=10000');
+                const result = await response.json();
+                if (result.success) {
+                    const years = new Set();
+                    (result.data||[]).forEach(item => {
+                        if(item.qishu && item.qishu.length>=4) years.add(item.qishu.slice(0,4));
+                    });
+                    const yearArr = Array.from(years).sort((a,b)=>b.localeCompare(a));
+                    const select = document.getElementById('combYear');
+                    select.innerHTML = '<option value="all">全部</option>' + yearArr.map(y=>`<option value="${y}">${y}</option>`).join('');
+                }
+            } catch(e) {console.error('年份选项加载失败',e);}
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            fillCombYearOptions();
+        });
 
         // 创建组合图表
         function createCombinationsChart(data) {
@@ -946,33 +1092,115 @@
             });
         }
 
-        // 显示组合详情
+        // 显示组合详情（自定义分组分析）
         function displayCombinationsDetails(data) {
             const container = document.getElementById('combinationsDetails');
-            
-            let html = '<div class="row">';
-            html += `<div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">连续号码</h5>
-                        <p class="card-text">出现次数: ${data.consecutive_count || 0}</p>
-                        <p class="card-text">占比: ${(data.consecutive_percentage || 0).toFixed(2)}%</p>
+            if (!data || !data.group1_numbers || !data.group2_numbers) {
+                container.innerHTML = '<div class="alert alert-warning">暂无数据</div>';
+                return;
+            }
+            // 组1/组2号码美化为彩色球
+            let html = `<div class="mb-3">
+                <div class='group-balls'><span class='group-balls-label'>组1：</span>` + data.group1_numbers.map(num=>`<span class='lottery-number ${getNumberColorClass(num)}'>${num}</span>`).join('') + `</div>` +
+                `<div class='group-balls'><span class='group-balls-label'>组2：</span>` + data.group2_numbers.map(num=>`<span class='lottery-number ${getNumberColorClass(num)}'>${num}</span>`).join('') + `</div>` +
+                `<div class='mt-2'><strong>分析号码位置：</strong> ${data.target_col.replace('number','第') + '个码'}<br>
+                <strong>当前期属于：</strong> ${data.current_group === 1 ? '组1' : data.current_group === 2 ? '组2' : '其它'}</div>
+            </div>`;
+            html += `<div class='combinations-divider'></div>`;
+            // 统计数字卡片美化
+            function stat(arr) {
+                if (!arr.length) return {max:0, avg:0};
+                return {
+                    max: Math.max(...arr),
+                    avg: (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2)
+                };
+            }
+            const g1miss = stat(data.result.group1.miss);
+            const g1hit = stat(data.result.group1.hit);
+            const g2miss = stat(data.result.group2.miss);
+            const g2hit = stat(data.result.group2.hit);
+            html += `<div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="group-stat-card p-3 mb-2">
+                        <h6><i class='fas fa-layer-group'></i> 组1遗漏/连中</h6>
+                        <div class='stat-label'>最大遗漏: <span class='fw-bold text-danger'>${g1miss.max}</span>，平均遗漏: <span class='fw-bold text-primary'>${g1miss.avg}</span></div>
+                        <div class='stat-label'>最大连中: <span class='fw-bold text-success'>${g1hit.max}</span>，平均连中: <span class='fw-bold text-primary'>${g1hit.avg}</span></div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="group-stat-card p-3 mb-2">
+                        <h6><i class='fas fa-layer-group'></i> 组2遗漏/连中</h6>
+                        <div class='stat-label'>最大遗漏: <span class='fw-bold text-danger'>${g2miss.max}</span>，平均遗漏: <span class='fw-bold text-primary'>${g2miss.avg}</span></div>
+                        <div class='stat-label'>最大连中: <span class='fw-bold text-success'>${g2hit.max}</span>，平均连中: <span class='fw-bold text-primary'>${g2hit.avg}</span></div>
                     </div>
                 </div>
             </div>`;
-            
-            html += `<div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">重复号码</h5>
-                        <p class="card-text">出现次数: ${data.duplicate_count || 0}</p>
-                        <p class="card-text">占比: ${(data.duplicate_percentage || 0).toFixed(2)}%</p>
-                    </div>
-                </div>
-            </div>`;
-            
-            html += '</div>';
+            html += `<div class='combinations-divider'></div>`;
+            // 明细表格美化
+            let missPage = 1;
+            const missPageSize = 20;
+            let detailRows = data.detail_rows || [];
+            detailRows = detailRows.slice().reverse(); // 倒序显示
+            function renderDetailTable(page, rows) {
+                if (!rows || rows.length === 0) {
+                    document.getElementById('missDetailTable').innerHTML = '<div class="text-center text-muted py-4">暂无明细数据</div>';
+                    return;
+                }
+                let html = '<div class="miss-detail-table-wrap">';
+                html += '<div class="table-responsive">';
+                html += '<table class="table table-bordered table-sm table-hover">';
+                html += '<thead class="table-dark"><tr>' +
+                    '<th>期数</th><th>开奖时间</th><th>第N个码</th><th>所属组别</th>' +
+                    '<th>组1连续命中</th><th>组2连续命中</th><th>组1连续遗漏</th><th>组2连续遗漏</th>' +
+                    '</tr></thead><tbody>';
+                const start = (page-1)*missPageSize;
+                const end = Math.min(start+missPageSize, rows.length);
+                for(let i=start;i<end;i++){
+                    const r = rows[i];
+                    html += `<tr>`;
+                    html += `<td>${r.qishu}</td>`;
+                    html += `<td>${r.draw_time}</td>`;
+                    html += `<td>${r.number}</td>`;
+                    html += `<td>${r.group===1?'组1':r.group===2?'组2':'其它'}</td>`;
+                    html += `<td>${r.g1_hit}</td>`;
+                    html += `<td>${r.g2_hit}</td>`;
+                    html += `<td>${r.g1_miss}</td>`;
+                    html += `<td>${r.g2_miss}</td>`;
+                    html += `</tr>`;
+                }
+                html += '</tbody></table></div>';
+                // 分页按钮
+                html += `<div class='d-flex justify-content-between align-items-center my-2'>`;
+                html += `<button class='btn btn-sm btn-outline-primary' style='border-radius:6px;' ${page<=1?'disabled':''} onclick='missPageChange(-1)'><i class='fas fa-chevron-left'></i> 上一页</button>`;
+                html += `<span>第 ${page} / ${Math.ceil(rows.length/missPageSize)} 页</span>`;
+                html += `<button class='btn btn-sm btn-outline-primary' style='border-radius:6px;' ${end>=rows.length?'disabled':''} onclick='missPageChange(1)'>下一页 <i class='fas fa-chevron-right'></i></button>`;
+                html += `</div></div>`;
+                document.getElementById('missDetailTable').innerHTML = html;
+            }
+            window.missPageChange = function(delta) {
+                missPage += delta;
+                if (missPage < 1) missPage = 1;
+                if (missPage > Math.ceil(detailRows.length/missPageSize)) missPage = Math.ceil(detailRows.length/missPageSize);
+                renderDetailTable(missPage, detailRows);
+            }
+            // 渲染明细表格入口
+            html += `<div class='mt-3 d-flex justify-content-between align-items-center'>`;
+            html += `<strong>期数明细表</strong>`;
+            html += `<button class='btn btn-sm' id='exportDetailCSVBtn'><i class='fas fa-download'></i> 导出全部明细</button>`;
+            html += `</div><div id='missDetailTable'></div>`;
+            missPage = 1;
+            setTimeout(()=>renderDetailTable(missPage, detailRows), 0);
+
             container.innerHTML = html;
+            // 绑定导出按钮事件
+            setTimeout(()=>{
+                const btn = document.getElementById('exportDetailCSVBtn');
+                if(btn){
+                    btn.onclick = function(){
+                        exportDetailCSV(detailRows);
+                    };
+                }
+            }, 0);
         }
 
         // 加载开奖数据
@@ -1036,6 +1264,74 @@
                 html += '</tbody></table></div>';
             });
             document.getElementById('dataTable').innerHTML = html;
+        }
+
+        // 渲染遗漏区段表格
+        function renderMissTable(groupIndex, missData) {
+            const container = document.getElementById(`group${groupIndex}MissTable`);
+            if (!missData || missData.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-4">暂无遗漏数据</div>';
+                return;
+            }
+
+            let html = '<div class="table-responsive">';
+            html += '<table class="table table-bordered table-sm table-hover">';
+            html += '<thead class="table-dark"><tr><th>遗漏期数</th><th>遗漏次数</th></tr></thead><tbody>';
+            
+            missData.forEach(item => {
+                html += `<tr>`;
+                html += `<td>${item.miss_period}</td>`;
+                html += `<td>${item.miss_count}</td>`;
+                html += `</tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        // 导出遗漏数据为CSV
+        function exportMissCSV(groupIndex) {
+            const missData = currentData.combinationsDetails.result.group1.miss || []; // 假设遗漏数据在combinationsDetails中
+            const filename = `遗漏数据_组${groupIndex}.csv`;
+            const csvContent = "遗漏期数,遗漏次数\n" + missData.map(item => `${item.miss_period},${item.miss_count}`).join("\n");
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 导出明细表格为CSV
+        function exportDetailCSV(rows) {
+            if (!rows || rows.length === 0) {
+                alert('暂无明细数据可导出');
+                return;
+            }
+            const header = ['期数','开奖时间','第N个码','所属组别','组1连续命中','组2连续命中','组1连续遗漏','组2连续遗漏'];
+            const csvRows = [header.join(',')];
+            rows.forEach(r => {
+                csvRows.push([
+                    r.qishu,
+                    r.draw_time,
+                    r.number,
+                    r.group===1?'组1':r.group===2?'组2':'其它',
+                    r.g1_hit,
+                    r.g2_hit,
+                    r.g1_miss,
+                    r.g2_miss
+                ].join(','));
+            });
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = '组合分析明细.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
