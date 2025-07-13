@@ -372,7 +372,7 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="trends-tab" data-bs-toggle="tab" data-bs-target="#trends" type="button" role="tab">
-                        <i class="fas fa-trending-up"></i> 趋势分析
+                        <i class="fas fa-sort-numeric-up"></i> 第七码十位分析
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -445,33 +445,41 @@
                     </div>
                 </div>
 
-                <!-- 趋势分析 -->
+                <!-- 第七码十位分析 -->
                 <div class="tab-pane fade" id="trends" role="tabpanel">
-                    <div class="filter-section">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <label for="trendDays" class="form-label">分析天数</label>
-                                <select class="form-select" id="trendDays">
-                                    <option value="30">最近30期</option>
-                                    <option value="50">最近50期</option>
-                                    <option value="100">最近100期</option>
+                    <div class="chart-container">
+                        <h4><i class="fas fa-sort-numeric-up"></i> 第N码十位组合遗漏分析</h4>
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label for="trendPosition" class="form-label">分析号码位置</label>
+                                <select class="form-select" id="trendPosition">
+                                    <option value="1">第1个码</option>
+                                    <option value="2">第2个码</option>
+                                    <option value="3">第3个码</option>
+                                    <option value="4">第4个码</option>
+                                    <option value="5">第5个码</option>
+                                    <option value="6">第6个码</option>
+                                    <option value="7" selected>第7个码</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">&nbsp;</label>
-                                <button class="btn btn-primary d-block" onclick="loadTrends()">
-                                    <i class="fas fa-sync"></i> 更新趋势
+                            <div class="col-md-3">
+                                <label for="trendYear" class="form-label">年份</label>
+                                <select class="form-select" id="trendYear">
+                                    <option value="all">全部</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="trendThreshold" class="form-label">高亮阀值</label>
+                                <input type="number" class="form-control" id="trendThreshold" value="10" min="1" max="100" onchange="updateSeventhTensView()">
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button class="btn btn-primary ms-2" onclick="loadSeventhTensAnalysis()">
+                                    <i class="fas fa-sync"></i> 刷新分析
                                 </button>
                             </div>
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="chart-container">
-                                <h4><i class="fas fa-chart-line"></i> 号码趋势分析</h4>
-                                <canvas id="trendsChart"></canvas>
-                            </div>
-                        </div>
+                        <div id="seventhTensStats" class="mb-3"></div>
+                        <div id="seventhTensTable"></div>
                     </div>
                 </div>
 
@@ -770,7 +778,7 @@
                         loadHotCold();
                         break;
                     case '#trends':
-                        loadTrends();
+                        loadSeventhTensAnalysis();
                         break;
                     case '#combinations':
                         loadCombinations();
@@ -967,57 +975,118 @@
             });
         }
 
-        // 加载趋势分析
-        async function loadTrends() {
+        // 加载第N码十位分析
+        let seventhTensAllData = {};
+        async function loadSeventhTensAnalysis() {
             try {
-                const days = document.getElementById('trendDays').value;
-                const response = await fetch(`/api/trends?days=${days}`);
+                const position = document.getElementById('trendPosition').value;
+                const year = document.getElementById('trendYear').value;
+                let url = `/api/seventh-digit-tens-analysis?position=${position}`;
+                if (year && year !== 'all') url += `&year=${year}`;
+                const response = await fetch(url);
                 const result = await response.json();
-                
                 if (result.success) {
-                    createTrendsChart(result.data);
+                    seventhTensAllData = result.data || {};
+                    updateSeventhTensView();
+                } else {
+                    document.getElementById('seventhTensStats').innerHTML = '<div class="error">没有找到数据</div>';
+                    document.getElementById('seventhTensTable').innerHTML = '';
                 }
             } catch (error) {
-                console.error('加载趋势数据失败:', error);
+                document.getElementById('seventhTensStats').innerHTML = '<div class="error">加载数据失败</div>';
+                document.getElementById('seventhTensTable').innerHTML = '';
             }
         }
-
-        // 创建趋势图表
-        function createTrendsChart(data) {
-            const trendsCtx = document.getElementById('trendsChart').getContext('2d');
-            if (charts.trends) {
-                charts.trends.destroy();
-            }
-            
-            const positions = ['number1', 'number2', 'number3', 'number4', 'number5', 'number6', 'number7'];
-            const datasets = positions.map((pos, index) => {
-                const posData = data[pos] || {};
-                return {
-                    label: `位置${index + 1}`,
-                    data: [posData.mean || 0, posData.median || 0, posData.min || 0, posData.max || 0],
-                    backgroundColor: `hsl(${index * 51}, 70%, 60%)`,
-                    borderColor: `hsl(${index * 51}, 70%, 50%)`,
-                    borderWidth: 2
-                };
-            });
-            
-            charts.trends = new Chart(trendsCtx, {
-                type: 'radar',
-                data: {
-                    labels: ['平均值', '中位数', '最小值', '最大值'],
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        r: {
-                            beginAtZero: true,
-                            max: 100
-                        }
-                    }
+        // 移除十位组合下拉框的事件监听
+        // document.getElementById('tensComb').addEventListener('change', updateSeventhTensView);
+        document.getElementById('trendPosition').addEventListener('change', loadSeventhTensAnalysis);
+        document.getElementById('trendYear').addEventListener('change', loadSeventhTensAnalysis);
+        // 动态填充年份下拉框
+        async function fillTrendYearOptions() {
+            try {
+                const response = await fetch('/api/data?limit=10000');
+                const result = await response.json();
+                if (result.success) {
+                    const years = new Set();
+                    (result.data||[]).forEach(item => {
+                        if(item.qishu && item.qishu.length>=4) years.add(item.qishu.slice(0,4));
+                    });
+                    const yearArr = Array.from(years).sort((a,b)=>b.localeCompare(a));
+                    const select = document.getElementById('trendYear');
+                    select.innerHTML = '<option value="all">全部</option>' + yearArr.map(y=>`<option value="${y}">${y}</option>`).join('');
                 }
-            });
+            } catch(e) {console.error('年份选项加载失败',e);}
         }
+        document.addEventListener('DOMContentLoaded', function() {
+            fillTrendYearOptions();
+            loadSeventhTensAnalysis();
+        });
+        function updateSeventhTensView() {
+            // 直接默认comb为'01'，或遍历所有组合
+            // const comb = document.getElementById('tensComb').value;
+            // 这里可以默认显示所有组合统计
+            // 例如：显示所有组合的最大遗漏
+            displaySeventhTensStats(seventhTensAllData);
+            // 也可以默认显示01组合明细
+            displaySeventhTensTable((seventhTensAllData['01']||{}).detail_rows||[]);
+        }
+        function displaySeventhTensStats(data) {
+            // 统计所有组合最大遗漏
+            const combs = ['01','02','03','04','12','13','14','23','24','34'];
+            let maxMissRow = '<div class="row mb-2">';
+            for(const c of combs){
+                const maxMiss = (seventhTensAllData[c]?.max_miss)||0;
+                maxMissRow += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:70px;'><div class='fw-bold' style='font-size:1.2rem;'>${c}</div><div class='text-danger fw-bold' style='font-size:1.3rem;'>${maxMiss}</div><div style='font-size:0.9rem;'>最大遗漏</div></div></div>`;
+            }
+            maxMissRow += '</div>';
+            // 旧统计卡片
+            let html = maxMissRow;
+             
+            document.getElementById('seventhTensStats').innerHTML = html;
+        }
+        function displaySeventhTensTable(rows) {
+            if (!rows || rows.length === 0) {
+                document.getElementById('seventhTensTable').innerHTML = '<div class="text-center text-muted py-4">暂无明细数据</div>';
+                return;
+            }
+            // 需要全局的seventhTensAllData，rows为当前组合的明细，但我们要所有组合的遗漏数据
+            const combs = ['01','02','03','04','12','13','14','23','24','34'];
+            // 以某一组（如01）为基准遍历所有期数
+            const baseRows = (seventhTensAllData['01']?.detail_rows||[]).slice().reverse();
+            // 获取高亮阀值
+            const threshold = parseInt(document.getElementById('trendThreshold')?.value || '10', 10);
+            let html = '<div class="miss-detail-table-wrap">';
+            html += '<div class="table-responsive">';
+            html += '<table class="table table-bordered table-sm table-hover">';
+            html += '<thead class="table-dark"><tr>' +
+                '<th>期数</th><th>开奖时间</th><th>第N码</th><th>十位' +
+                combs.map(c=>`<th>${c}</th>`).join('') +
+                '</tr></thead><tbody>';
+            for(let i=0;i<baseRows.length;i++){
+                const r = baseRows[i];
+                html += `<tr>`;
+                html += `<td>${r.qishu}</td>`;
+                html += `<td>${r.draw_time}</td>`;
+                html += `<td>${r.number}</td>`;
+                html += `<td>${r.tens}</td>`;
+                // 每组的遗漏数据
+                for(const c of combs){
+                    const groupRows = (seventhTensAllData[c]?.detail_rows||[]).slice().reverse();
+                    const miss = groupRows[i]?.miss_streak || 0;
+                    let cellStyle = '';
+                    if(miss === 0) cellStyle = " style='color:#28a745;font-weight:bold;'";
+                    else if(miss >= threshold) cellStyle = " style='color:#fff;background:#d9534f;font-weight:bold;'";
+                    html += `<td${cellStyle}>${miss}</td>`;
+                }
+                html += `</tr>`;
+            }
+            html += '</tbody></table></div></div>';
+            document.getElementById('seventhTensTable').innerHTML = html;
+        }
+        // 页面加载时默认加载
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSeventhTensAnalysis();
+        });
 
         // 加载组合分析
         async function loadCombinations() {

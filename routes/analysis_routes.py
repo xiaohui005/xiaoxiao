@@ -247,3 +247,31 @@ def get_seventh_number_recommendation():
         print(f"第七码推荐API错误: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500 
+
+@analysis_bp.route('/seventh-digit-tens-analysis')
+def get_seventh_digit_tens_analysis():
+    """第N码十位分析API"""
+    if not get_database_status():
+        return jsonify({
+            'error': '数据库连接不可用，请检查配置或使用演示版本',
+            'demo_url': 'http://localhost:5001'
+        }), 503
+    try:
+        # 新增参数 position，默认7
+        position = request.args.get('position', 7, type=int)
+        year = request.args.get('year', None, type=str)
+        db_manager = get_db_manager()
+        # 加载全部数据
+        data = db_manager.get_all_data_for_analysis()
+        if data.empty:
+            return jsonify({'error': '没有找到数据'}), 404
+        # 按年份过滤
+        if year is not None and 'draw_time' in data.columns:
+            data = data[data['draw_time'].astype(str).str.startswith(str(year))]
+        analyzer = LotteryAnalyzer(data)
+        group_stats = analyzer.get_seventh_digit_tens_analysis(position=position)
+        return jsonify({'success': True, 'data': group_stats})
+    except Exception as e:
+        print(f"第N码十位分析API错误: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500 

@@ -471,3 +471,78 @@ class LotteryAnalyzer:
         except Exception as e:
             print(f"自定义组合分析错误: {e}")
             return {'error': str(e)} 
+
+    def get_seventh_digit_tens_analysis(self, position=7):
+        """
+        第N码十位组合分析：
+        - 只分析numberN的十位
+        - 分别统计 00,01,02,03,04,12,13,14,23,24,34 这11组的遗漏情况
+        - 每期只要组合中包含当前十位数字的组合算命中，其他组合算遗漏
+        - 统计每组的遗漏区段（长度）、最大遗漏、当前遗漏、遗漏前三名，返回每组明细和统计
+        """
+        if self.data.empty:
+            return {}
+        try:
+            sorted_data = self.data.sort_values('qishu', ascending=True).reset_index(drop=True)
+            col = f'number{position}'
+            if col not in sorted_data.columns:
+                return {'error': f'未找到{col}列'}
+            qishu_list = sorted_data['qishu'].tolist() if 'qishu' in sorted_data.columns else []
+            draw_time_list = sorted_data['draw_time'].tolist() if 'draw_time' in sorted_data.columns else []
+            numberN_list = sorted_data[col].tolist() if col in sorted_data.columns else []
+            # 严格提取十位，防止None/NaN等异常
+            tens_list = []
+            for n in numberN_list:
+                try:
+                    n_int = int(n)
+                    ten = n_int // 10
+                except Exception:
+                    ten = None
+                tens_list.append(ten)
+            # 组合列表
+            combs = ['00','01','02','03','04','12','13','14','23','24','34']
+            group_stats = {}
+            for comb in combs:
+                miss_streaks = []
+                current_miss = 0
+                detail_rows = []
+                a, b = int(comb[0]), int(comb[1])
+                for i in range(len(tens_list)):
+                    qishu = qishu_list[i] if i < len(qishu_list) else ''
+                    draw_time = str(draw_time_list[i]) if i < len(draw_time_list) else ''
+                    numN = numberN_list[i] if i < len(numberN_list) else ''
+                    ten = tens_list[i]
+                    # 命中逻辑：只要组合中包含当前十位数字
+                    is_hit = (ten == a or ten == b)
+                    if is_hit:
+                        if current_miss > 0:
+                            miss_streaks.append(current_miss)
+                        current_miss = 0
+                    else:
+                        current_miss += 1
+                    detail_rows.append({
+                        'qishu': qishu,
+                        'draw_time': draw_time,
+                        'number': numN,
+                        'tens': ten,
+                        'is_hit': is_hit,
+                        'miss_streak': current_miss if not is_hit else 0
+                    })
+                # 收尾
+                if current_miss > 0:
+                    miss_streaks.append(current_miss)
+                # 最大遗漏、当前遗漏、遗漏前三名
+                max_miss = max(miss_streaks + [current_miss]) if miss_streaks or current_miss > 0 else 0
+                top3_miss = sorted(miss_streaks, reverse=True)[:3] if miss_streaks else []
+                current_miss_count = current_miss
+                group_stats[comb] = {
+                    'detail_rows': detail_rows,
+                    'miss_streaks': miss_streaks,
+                    'max_miss': max_miss,
+                    'top3_miss': top3_miss,
+                    'current_miss': current_miss_count
+                }
+            return group_stats
+        except Exception as e:
+            print(f"第N码十位分析错误: {e}")
+            return {'error': str(e)} 
