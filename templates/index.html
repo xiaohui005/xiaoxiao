@@ -376,6 +376,11 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="sixplusminus-tab-btn" data-bs-toggle="tab" data-bs-target="#sixplusminus-tab" type="button" role="tab">
+                        <i class="fas fa-magic"></i> 前6码±1推荐
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
                         <i class="fas fa-table"></i> 开奖数据
                     </button>
@@ -494,6 +499,23 @@
                                 <div id="combinationsDetails"></div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 前6码±1推荐 -->
+                <div class="tab-pane fade" id="sixplusminus-tab" role="tabpanel">
+                    <div class="chart-container">
+                        <h4><i class="fas fa-magic"></i> 前6码±1推荐分析</h4>
+                        <div class="mb-3">
+                            <label class="form-label">年份</label>
+                            <span id="sixpm-year-btns" class="me-3"></span>
+                            <label for="sixpm-threshold" class="form-label ms-3">高亮阀值</label>
+                            <input type="number" class="form-control" id="sixpm-threshold" value="10" min="1" max="100" style="width:120px;display:inline-block;">
+                            <button class="btn btn-primary ms-2" onclick="loadSixPlusMinusAnalysis()"><i class="fas fa-sync"></i> 刷新分析</button>
+                            <button class="btn btn-success ms-2" onclick="exportSixPlusMinusCSV()"><i class="fas fa-file-csv"></i> 导出CSV</button>
+                        </div>
+                        <div id="sixpm-stats" class="mb-3"></div>
+                        <div id="sixpm-table"></div>
                     </div>
                 </div>
 
@@ -756,6 +778,9 @@
                         break;
                     case '#combinations':
                         loadCombinations();
+                        break;
+                    case '#sixplusminus-tab':
+                        loadSixPlusMinusAnalysis();
                         break;
                     case '#data':
                         loadData();
@@ -1286,6 +1311,140 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        // 前6码±1推荐分析
+        let sixpmSelectedYear = 'all';
+        async function loadSixPlusMinusAnalysis() {
+            const threshold = parseInt(document.getElementById('sixpm-threshold').value || '10', 10);
+            const year = sixpmSelectedYear || 'all';
+            document.getElementById('sixpm-stats').innerHTML = '<div class="loading">加载中...</div>';
+            document.getElementById('sixpm-table').innerHTML = '';
+            try {
+                const response = await fetch(`/api/sixplusminus-analysis?threshold=${threshold}&year=${year}`);
+                const result = await response.json();
+                if (result.success) {
+                    window.sixpmLastData = result.data;
+                    renderSixPlusMinusStats(result.data);
+                    renderSixPlusMinusTable(result.data);
+                } else {
+                    document.getElementById('sixpm-stats').innerHTML = '<div class="error">' + (result.error || '加载失败') + '</div>';
+                }
+            } catch (e) {
+                document.getElementById('sixpm-stats').innerHTML = '<div class="error">加载失败</div>';
+            }
+        }
+        function renderSixPlusMinusStats(data) {
+            let html = '';
+            html += `<div class='mb-2'><strong>最大遗漏：</strong><span class='text-danger fw-bold'>${data.max_miss}</span>  <strong>当前遗漏：</strong><span class='text-primary fw-bold'>${data.current_miss}</span></div>`;
+            if (data.latest_plusminus && data.latest_plusminus.length > 0) {
+                html += '<div class="mb-2">';
+                if (data.latest_six && data.latest_six.length === 6) {
+                    html += '本期6码：';
+                    data.latest_six.forEach(num => {
+                        const colorClass = getNumberColorClass(num);
+                        html += `<span class="lottery-number ${colorClass}" style="width:28px;height:28px;line-height:28px;font-size:14px;margin:0 2px;">${num}</span>`;
+                    });
+                    html += '<br />';
+                }
+                html += '最新一期12码推荐：';
+                data.latest_plusminus.forEach(num => {
+                    const colorClass = getNumberColorClass(num);
+                    const highlight = (data.highlight && data.highlight.includes(num)) ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
+                    html += `<span class="lottery-number ${colorClass}" style="width:32px;height:32px;line-height:32px;font-size:15px;margin:0 3px;${highlight}">${num}</span>`;
+                });
+                html += '</div>';
+            }
+            document.getElementById('sixpm-stats').innerHTML = html;
+        }
+        function renderSixPlusMinusTable(data) {
+            const rows = data.detail_rows || [];
+            if (!rows.length) {
+                document.getElementById('sixpm-table').innerHTML = '<div class="text-center text-muted py-4">暂无明细数据</div>';
+                return;
+            }
+            let html = '<div class="miss-detail-table-wrap">';
+            html += '<div class="table-responsive">';
+            html += '<table class="table table-bordered table-sm table-hover">';
+            html += '<thead class="table-dark"><tr>' +
+                '<th>期数</th><th>开奖时间</th><th>12码推荐</th><th>第7码</th><th>命中</th><th>遗漏期数</th>' +
+                '</tr></thead><tbody>';
+            rows.slice().reverse().forEach(r => {
+                // 高亮样式设置在遗漏期数列
+                let highlightMiss = (r.miss_streak >= (data.threshold||10) && r.is_hit===false) ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
+                html += `<tr>`;
+                html += `<td>${r.qishu}</td>`;
+                html += `<td>${r.draw_time}</td>`;
+                html += `<td>`;
+                (r.plusminus12||[]).forEach(num => {
+                    const colorClass = getNumberColorClass(num);
+                    html += `<span class="lottery-number ${colorClass}" style="width:24px;height:24px;line-height:24px;font-size:13px;margin:0 1px;">${num}</span>`;
+                });
+                html += `</td>`;
+                html += `<td>${r.seventh||''}</td>`;
+                html += `<td>${r.is_hit===true ? '命中' : (r.is_hit===false ? '遗漏' : '')}</td>`;
+                html += `<td style='${highlightMiss}'>${r.miss_streak ? `连续${r.miss_streak}期未中奖` : ''}</td>`;
+                html += `</tr>`;
+            });
+            html += '</tbody></table></div></div>';
+            document.getElementById('sixpm-table').innerHTML = html;
+        }
+        // 前6码±1推荐分析
+        async function fillSixpmYearOptions() {
+            try {
+                const response = await fetch('/api/data?limit=10000');
+                const result = await response.json();
+                if (result.success) {
+                    const years = new Set();
+                    (result.data||[]).forEach(item => {
+                        if(item.qishu && item.qishu.length>=4) years.add(item.qishu.slice(0,4));
+                    });
+                    const yearArr = Array.from(years).sort((a,b)=>b.localeCompare(a));
+                    const btns = ['<button type="button" class="btn btn-outline-primary btn-sm me-1" data-year="all">全部</button>'];
+                    yearArr.forEach(y => {
+                        btns.push(`<button type="button" class="btn btn-outline-primary btn-sm me-1" data-year="${y}">${y}</button>`);
+                    });
+                    document.getElementById('sixpm-year-btns').innerHTML = btns.join('');
+                    // 绑定点击事件
+                    document.querySelectorAll('#sixpm-year-btns button').forEach(btn => {
+                        btn.onclick = function() {
+                            sixpmSelectedYear = this.getAttribute('data-year');
+                            document.querySelectorAll('#sixpm-year-btns button').forEach(b=>b.classList.remove('active'));
+                            this.classList.add('active');
+                            loadSixPlusMinusAnalysis();
+                        };
+                    });
+                    // 默认选中全部
+                    document.querySelector('#sixpm-year-btns button[data-year="all"]').classList.add('active');
+                }
+            } catch(e) {console.error('年份选项加载失败',e);}
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            fillSixpmYearOptions();
+        });
+
+        function exportSixPlusMinusCSV() {
+            if (!window.sixpmLastData || !sixpmLastData.detail_rows) {
+                alert('暂无可导出的数据');
+                return;
+            }
+            const rows = sixpmLastData.detail_rows;
+            let csv = '期数,开奖时间,12码推荐,第7码,命中,遗漏期数\n';
+            rows.slice().reverse().forEach(r => {
+                const plus12 = (r.plusminus12||[]).join(' ');
+                const isHit = r.is_hit===true ? '命中' : (r.is_hit===false ? '遗漏' : '');
+                const miss = r.miss_streak ? `连续${r.miss_streak}期未中奖` : '';
+                csv += `${r.qishu},${r.draw_time},"${plus12}",${r.seventh||''},${isHit},${miss}\n`;
+            });
+            const blob = new Blob([csv], {type: 'text/csv'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sixplusminus_analysis.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>

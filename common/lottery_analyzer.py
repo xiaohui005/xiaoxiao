@@ -546,3 +546,81 @@ class LotteryAnalyzer:
         except Exception as e:
             print(f"第N码十位分析错误: {e}")
             return {'error': str(e)} 
+
+    def get_sixplusminus_analysis(self, threshold=10):
+        """
+        前6码±1推荐分析：
+        - 每期取前6个码，对每个码加1和减1，得到12个推荐码（去重，范围1-49）
+        - 判断下一期的第7个码是否在这12个推荐码中，有则命中，没有则为遗漏
+        - 统计最大遗漏、当前遗漏、每期明细
+        - 返回最新一期的12码推荐，支持高亮阀值
+        """
+        if self.data.empty:
+            return {}
+        try:
+            sorted_data = self.data.sort_values('qishu', ascending=True).reset_index(drop=True)
+            qishu_list = sorted_data['qishu'].tolist()
+            draw_time_list = sorted_data['draw_time'].tolist() if 'draw_time' in sorted_data.columns else []
+            n = len(sorted_data)
+            miss_streaks = []
+            current_miss = 0
+            detail_rows = []
+            max_miss = 0
+            # 记录每期的12码推荐和命中情况
+            for i in range(n-1):
+                nums = [int(sorted_data.iloc[i][f'number{j}']) for j in range(1,7)]
+                plusminus = set()
+                for num in nums:
+                    if 1 <= num-1 <= 49:
+                        plusminus.add(num-1)
+                    if 1 <= num+1 <= 49:
+                        plusminus.add(num+1)
+                plusminus = sorted(list(plusminus))
+                next_seventh = int(sorted_data.iloc[i+1]['number7']) if i+1 < n else None
+                is_hit = next_seventh in plusminus if next_seventh is not None else None
+                if is_hit:
+                    if current_miss > 0:
+                        miss_streaks.append(current_miss)
+                    current_miss = 0
+                else:
+                    current_miss += 1
+                detail_rows.append({
+                    'qishu': qishu_list[i+1] if i+1 < n else '',
+                    'draw_time': str(draw_time_list[i+1]) if i+1 < len(draw_time_list) else '',
+                    'plusminus12': plusminus,
+                    'seventh': next_seventh,
+                    'is_hit': is_hit,
+                    'miss_streak': current_miss if not is_hit else 0
+                })
+            # 收尾
+            if current_miss > 0:
+                miss_streaks.append(current_miss)
+            max_miss = max(miss_streaks) if miss_streaks else 0
+            current_miss_count = current_miss
+            # 最新一期的12码推荐
+            latest_plusminus = []
+            latest_six = []
+            if n > 0:
+                nums = [int(sorted_data.iloc[-1][f'number{j}']) for j in range(1,7)]
+                latest_six = nums
+                plusminus = set()
+                for num in nums:
+                    if 1 <= num-1 <= 49:
+                        plusminus.add(num-1)
+                    if 1 <= num+1 <= 49:
+                        plusminus.add(num+1)
+                latest_plusminus = sorted(list(plusminus))
+            # 阀值高亮
+            highlight = [num for num in latest_plusminus if miss_streaks and current_miss_count >= threshold]
+            return {
+                'max_miss': max_miss,
+                'current_miss': current_miss_count,
+                'detail_rows': detail_rows,
+                'latest_plusminus': latest_plusminus,
+                'latest_six': latest_six,
+                'highlight': highlight,
+                'threshold': threshold
+            }
+        except Exception as e:
+            print(f"前6码±1推荐分析错误: {e}")
+            return {'error': str(e)} 
