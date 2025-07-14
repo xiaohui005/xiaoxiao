@@ -547,10 +547,10 @@ class LotteryAnalyzer:
             print(f"第N码十位分析错误: {e}")
             return {'error': str(e)} 
 
-    def get_sixplusminus_analysis(self, threshold=10):
+    def get_sixplusminus_analysis(self, threshold=10, plusminus=1):
         """
-        前6码±1推荐分析：
-        - 每期取前6个码，对每个码加1和减1，得到12个推荐码（去重，范围1-49）
+        前6码±N推荐分析：
+        - 每期取前6个码，对每个码加N和减N，超出49回到1，小于1回到49，得到12个推荐码（去重）
         - 判断下一期的第7个码是否在这12个推荐码中，有则命中，没有则为遗漏
         - 统计最大遗漏、当前遗漏、每期明细
         - 返回最新一期的12码推荐，支持高亮阀值
@@ -566,18 +566,28 @@ class LotteryAnalyzer:
             current_miss = 0
             detail_rows = []
             max_miss = 0
+            def plus_wrap(num, n):
+                res = num + n
+                while res > 49:
+                    res -= 49
+                return res
+            def minus_wrap(num, n):
+                res = num - n
+                while res < 1:
+                    res += 49
+                return res
             # 记录每期的12码推荐和命中情况
             for i in range(n-1):
                 nums = [int(sorted_data.iloc[i][f'number{j}']) for j in range(1,7)]
-                plusminus = set()
+                pmset = set()
                 for num in nums:
-                    if 1 <= num-1 <= 49:
-                        plusminus.add(num-1)
-                    if 1 <= num+1 <= 49:
-                        plusminus.add(num+1)
-                plusminus = sorted(list(plusminus))
+                    p = plus_wrap(num, plusminus)
+                    m = minus_wrap(num, plusminus)
+                    pmset.add(p)
+                    pmset.add(m)
+                pmset = sorted(list(pmset))
                 next_seventh = int(sorted_data.iloc[i+1]['number7']) if i+1 < n else None
-                is_hit = next_seventh in plusminus if next_seventh is not None else None
+                is_hit = next_seventh in pmset if next_seventh is not None else None
                 if is_hit:
                     if current_miss > 0:
                         miss_streaks.append(current_miss)
@@ -587,7 +597,7 @@ class LotteryAnalyzer:
                 detail_rows.append({
                     'qishu': qishu_list[i+1] if i+1 < n else '',
                     'draw_time': str(draw_time_list[i+1]) if i+1 < len(draw_time_list) else '',
-                    'plusminus12': plusminus,
+                    'plusminus12': pmset,
                     'seventh': next_seventh,
                     'is_hit': is_hit,
                     'miss_streak': current_miss if not is_hit else 0
@@ -603,13 +613,13 @@ class LotteryAnalyzer:
             if n > 0:
                 nums = [int(sorted_data.iloc[-1][f'number{j}']) for j in range(1,7)]
                 latest_six = nums
-                plusminus = set()
+                pmset = set()
                 for num in nums:
-                    if 1 <= num-1 <= 49:
-                        plusminus.add(num-1)
-                    if 1 <= num+1 <= 49:
-                        plusminus.add(num+1)
-                latest_plusminus = sorted(list(plusminus))
+                    p = plus_wrap(num, plusminus)
+                    m = minus_wrap(num, plusminus)
+                    pmset.add(p)
+                    pmset.add(m)
+                latest_plusminus = sorted(list(pmset))
             # 阀值高亮
             highlight = [num for num in latest_plusminus if miss_streaks and current_miss_count >= threshold]
             return {
@@ -619,8 +629,9 @@ class LotteryAnalyzer:
                 'latest_plusminus': latest_plusminus,
                 'latest_six': latest_six,
                 'highlight': highlight,
-                'threshold': threshold
+                'threshold': threshold,
+                'plusminus': plusminus
             }
         except Exception as e:
-            print(f"前6码±1推荐分析错误: {e}")
+            print(f"前6码±N推荐分析错误: {e}")
             return {'error': str(e)} 

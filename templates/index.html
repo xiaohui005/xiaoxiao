@@ -507,7 +507,9 @@
                     <div class="chart-container">
                         <h4><i class="fas fa-magic"></i> 前6码±1推荐分析</h4>
                         <div class="mb-3">
-                            <label class="form-label">年份</label>
+                            <label class="form-label">加减范围</label>
+                            <span id="sixpm-n-btns" class="me-3"></span>
+                            <label class="form-label ms-3">年份</label>
                             <span id="sixpm-year-btns" class="me-3"></span>
                             <label for="sixpm-threshold" class="form-label ms-3">高亮阀值</label>
                             <input type="number" class="form-control" id="sixpm-threshold" value="10" min="1" max="100" style="width:120px;display:inline-block;">
@@ -1315,18 +1317,26 @@
 
         // 前6码±1推荐分析
         let sixpmSelectedYear = 'all';
+        let sixpmSelectedN = 1;
+        let sixpmMaxMissMap = {};
         async function loadSixPlusMinusAnalysis() {
             const threshold = parseInt(document.getElementById('sixpm-threshold').value || '10', 10);
             const year = sixpmSelectedYear || 'all';
+            const plusminus = sixpmSelectedN || 1;
             document.getElementById('sixpm-stats').innerHTML = '<div class="loading">加载中...</div>';
             document.getElementById('sixpm-table').innerHTML = '';
             try {
-                const response = await fetch(`/api/sixplusminus-analysis?threshold=${threshold}&year=${year}`);
+                const response = await fetch(`/api/sixplusminus-analysis?threshold=${threshold}&year=${year}&plusminus=${plusminus}`);
                 const result = await response.json();
                 if (result.success) {
                     window.sixpmLastData = result.data;
                     renderSixPlusMinusStats(result.data);
                     renderSixPlusMinusTable(result.data);
+                    // 更新当前N的最大遗漏
+                    if (window.sixpmLastData && typeof window.sixpmLastData.max_miss === 'number') {
+                        sixpmMaxMissMap[sixpmSelectedN] = window.sixpmLastData.max_miss;
+                    }
+                    fillSixpmNOptions();
                 } else {
                     document.getElementById('sixpm-stats').innerHTML = '<div class="error">' + (result.error || '加载失败') + '</div>';
                 }
@@ -1336,7 +1346,7 @@
         }
         function renderSixPlusMinusStats(data) {
             let html = '';
-            html += `<div class='mb-2'><strong>最大遗漏：</strong><span class='text-danger fw-bold'>${data.max_miss}</span>  <strong>当前遗漏：</strong><span class='text-primary fw-bold'>${data.current_miss}</span></div>`;
+            html += `<div class='mb-2'><strong>最大遗漏：</strong><span class='text-danger fw-bold'>${data.max_miss}</span>  <strong>当前遗漏：</strong><span class='text-primary fw-bold'>${data.current_miss}</span>  <span class='ms-3 text-secondary'>当前分析：前6码±${data.plusminus}</span></div>`;
             if (data.latest_plusminus && data.latest_plusminus.length > 0) {
                 html += '<div class="mb-2">';
                 if (data.latest_six && data.latest_six.length === 6) {
@@ -1423,18 +1433,62 @@
             fillSixpmYearOptions();
         });
 
+        let sixpmCurrentMissMap = {};
+        function fillSixpmNOptions() {
+            const btns = [];
+            for(let n=1;n<=10;n++) {
+                let miss = sixpmCurrentMissMap[n] !== undefined ? `(${sixpmCurrentMissMap[n]})` : '';
+                btns.push(`<button type="button" class="btn btn-outline-secondary btn-sm me-1" data-n="${n}">±${n}${miss}</button>`);
+            }
+            document.getElementById('sixpm-n-btns').innerHTML = btns.join('');
+            document.querySelectorAll('#sixpm-n-btns button').forEach(btn => {
+                btn.onclick = function() {
+                    sixpmSelectedN = parseInt(this.getAttribute('data-n'));
+                    document.querySelectorAll('#sixpm-n-btns button').forEach(b=>b.classList.remove('active'));
+                    this.classList.add('active');
+                    loadSixPlusMinusAnalysis();
+                };
+            });
+            document.querySelector(`#sixpm-n-btns button[data-n="${sixpmSelectedN}"]`).classList.add('active');
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            fillSixpmNOptions();
+        });
+
+        async function updateSixpmCurrentMissMap() {
+            sixpmCurrentMissMap = {};
+            const year = sixpmSelectedYear || 'all';
+            const threshold = parseInt(document.getElementById('sixpm-threshold').value || '10', 10);
+            for(let n=1;n<=10;n++) {
+                try {
+                    const resp = await fetch(`/api/sixplusminus-analysis?threshold=${threshold}&year=${year}&plusminus=${n}`);
+                    const result = await resp.json();
+                    if(result.success && result.data && typeof result.data.current_miss === 'number') {
+                        sixpmCurrentMissMap[n] = result.data.current_miss;
+                    } else {
+                        sixpmCurrentMissMap[n] = '-';
+                    }
+                } catch { sixpmCurrentMissMap[n] = '-'; }
+            }
+            fillSixpmNOptions();
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            fillSixpmNOptions();
+            updateSixpmCurrentMissMap();
+        });
+
         function exportSixPlusMinusCSV() {
             if (!window.sixpmLastData || !sixpmLastData.detail_rows) {
                 alert('暂无可导出的数据');
                 return;
             }
             const rows = sixpmLastData.detail_rows;
-            let csv = '期数,开奖时间,12码推荐,第7码,命中,遗漏期数\n';
+            let csv = `期数,开奖时间,12码推荐,第7码,命中,遗漏期数,加减范围\n`;
             rows.slice().reverse().forEach(r => {
                 const plus12 = (r.plusminus12||[]).join(' ');
                 const isHit = r.is_hit===true ? '命中' : (r.is_hit===false ? '遗漏' : '');
                 const miss = r.miss_streak ? `连续${r.miss_streak}期未中奖` : '';
-                csv += `${r.qishu},${r.draw_time},"${plus12}",${r.seventh||''},${isHit},${miss}\n`;
+                csv += `${r.qishu},${r.draw_time},"${plus12}",${r.seventh||''},${isHit},${miss},±${sixpmSelectedN}\n`;
             });
             const blob = new Blob([csv], {type: 'text/csv'});
             const url = URL.createObjectURL(blob);

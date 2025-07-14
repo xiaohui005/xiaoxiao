@@ -278,7 +278,7 @@ def get_seventh_digit_tens_analysis():
 
 @analysis_bp.route('/sixplusminus-analysis')
 def get_sixplusminus_analysis():
-    """前6码±1推荐分析API"""
+    """前6码±N推荐分析API"""
     if not get_database_status():
         return jsonify({
             'error': '数据库连接不可用，请检查配置或使用演示版本',
@@ -287,6 +287,7 @@ def get_sixplusminus_analysis():
     try:
         threshold = request.args.get('threshold', 10, type=int)
         year = request.args.get('year', None, type=str)
+        plusminus = request.args.get('plusminus', 1, type=int)
         db_manager = get_db_manager()
         data = db_manager.get_all_data_for_analysis()
         if data.empty:
@@ -295,9 +296,9 @@ def get_sixplusminus_analysis():
         if year and year != 'all' and 'draw_time' in data.columns:
             data = data[data['draw_time'].astype(str).str.startswith(str(year))]
         analyzer = LotteryAnalyzer(data)
-        result = analyzer.get_sixplusminus_analysis(threshold=threshold)
+        result = analyzer.get_sixplusminus_analysis(threshold=threshold, plusminus=plusminus)
         return jsonify({'success': True, 'data': result})
     except Exception as e:
-        print(f"前6码±1推荐API错误: {str(e)}")
+        print(f"前6码±N推荐API错误: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500 
