@@ -98,3 +98,54 @@ def get_recent_data():
         print(f"最近数据API错误: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/plus20-intervals')
+def get_plus20_intervals():
+    """每个号码+1~+20区间命中/遗漏分析API"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        data = db_manager.get_lottery_data(limit=300)  # 可调整期数
+        if data.empty:
+            return jsonify({'error': '没有找到数据'}), 404
+        # 按qishu升序排列，便于下一期分析
+        data = data.sort_values('qishu', ascending=True).reset_index(drop=True)
+        records = []
+        max_miss = [0]*7
+        miss_streak = [0]*7
+        n = len(data)
+        for i in range(n-1):
+            row = data.iloc[i]
+            next_row = data.iloc[i+1]
+            entry = {
+                'qishu': str(row['qishu']),
+                'draw_time': row['draw_time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notna(row['draw_time']) else None,
+                'numbers': [int(row[f'number{j}']) for j in range(1,8)],
+                'next_seventh': int(next_row['number7']) if pd.notna(next_row['number7']) else None,
+                'intervals': []
+            }
+            for idx in range(7):
+                num = int(row[f'number{idx+1}'])
+                rng = [(num + j - 1) % 49 + 1 for j in range(1, 21)]
+                rng_min = rng[0]
+                rng_max = rng[-1]
+                hit = entry['next_seventh'] in rng
+                if hit:
+                    miss_streak[idx] = 0
+                else:
+                    miss_streak[idx] += 1
+                    max_miss[idx] = max(max_miss[idx], miss_streak[idx])
+                entry['intervals'].append({
+                    'number': num,
+                    'range': [rng_min, rng_max],
+                    'hit': hit,
+                    'miss_streak': miss_streak[idx],
+                    'max_miss': max_miss[idx]
+                })
+            records.append(entry)
+        return jsonify({'success': True, 'data': records, 'max_miss': max_miss})
+    except Exception as e:
+        print(f"plus20-intervals API错误: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500 
