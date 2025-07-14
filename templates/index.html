@@ -531,6 +531,8 @@
                     <div class="chart-container">
                         <h4><i class="fas fa-th-list"></i> 每个码+1~+20区间命中/遗漏分析</h4>
                         <div class="mb-3">
+                            <label class="form-label me-2">区间</label>
+                            <span id="plus20-range-btns" class="me-3"></span>
                             <label class="form-label me-2">年份</label>
                             <span id="plus20-year-btns" class="me-3"></span>
                             <label for="plus20-threshold" class="form-label">高亮阀值</label>
@@ -1658,6 +1660,33 @@
                     loadPlus20Intervals();
                 }
             });
+        });
+
+        // 区间选择
+        let plus20RangeList = [
+            {label: '+1~+20', start: 1, end: 20},
+            {label: '+5~+25', start: 5, end: 25},
+            {label: '+10~+30', start: 10, end: 30},
+            {label: '+15~+35', start: 15, end: 35},
+            {label: '+20~+40', start: 20, end: 40},
+            {label: '+25~+45', start: 25, end: 45}
+        ];
+        let plus20SelectedRange = plus20RangeList[0];
+        function fillPlus20RangeOptions() {
+            const btns = plus20RangeList.map((r,i) => `<button type="button" class="btn btn-outline-success btn-sm me-1" data-range="${i}">${r.label}</button>`);
+            document.getElementById('plus20-range-btns').innerHTML = btns.join('');
+            document.querySelectorAll('#plus20-range-btns button').forEach(btn => {
+                btn.onclick = function() {
+                    plus20SelectedRange = plus20RangeList[parseInt(this.getAttribute('data-range'))];
+                    document.querySelectorAll('#plus20-range-btns button').forEach(b=>b.classList.remove('active'));
+                    this.classList.add('active');
+                    loadPlus20Intervals();
+                };
+            });
+            document.querySelector('#plus20-range-btns button[data-range="0"]').classList.add('active');
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            fillPlus20RangeOptions();
         });
     </script>
 </body>
