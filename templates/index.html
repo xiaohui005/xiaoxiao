@@ -381,12 +381,12 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="plus20-tab" data-bs-toggle="tab" data-bs-target="#plus20" type="button" role="tab">
+                    <button class="nav-link active" id="plus20-tab" data-bs-toggle="tab" data-bs-target="#plus20" type="button" role="tab">
                         <i class="fas fa-th-list"></i> +1~+20区间分析
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
+                    <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
                         <i class="fas fa-table"></i> 开奖数据
                     </button>
                 </li>
@@ -531,6 +531,8 @@
                     <div class="chart-container">
                         <h4><i class="fas fa-th-list"></i> 每个码+1~+20区间命中/遗漏分析</h4>
                         <div class="mb-3">
+                            <label class="form-label me-2">年份</label>
+                            <span id="plus20-year-btns" class="me-3"></span>
                             <label for="plus20-threshold" class="form-label">高亮阀值</label>
                             <input type="number" class="form-control" id="plus20-threshold" value="10" min="1" max="50" style="width:120px;display:inline-block;">
                             <button class="btn btn-primary ms-2" onclick="loadPlus20Intervals()"><i class="fas fa-sync"></i> 刷新分析</button>
@@ -1523,8 +1525,100 @@
         }
 
         // +1~+20区间分析
+        let plus20SelectedYear = 'all';
+        async function fillPlus20YearOptions() {
+            try {
+                const response = await fetch('/api/data?limit=10000');
+                const result = await response.json();
+                if (result.success) {
+                    const years = new Set();
+                    (result.data||[]).forEach(item => {
+                        if(item.qishu && item.qishu.length>=4) years.add(item.qishu.slice(0,4));
+                    });
+                    const yearArr = Array.from(years).sort((a,b)=>b.localeCompare(a));
+                    const btns = ['<button type="button" class="btn btn-outline-primary btn-sm me-1" data-year="all">全部</button>'];
+                    yearArr.forEach(y => {
+                        btns.push(`<button type="button" class="btn btn-outline-primary btn-sm me-1" data-year="${y}">${y}</button>`);
+                    });
+                    document.getElementById('plus20-year-btns').innerHTML = btns.join('');
+                    // 绑定点击事件
+                    document.querySelectorAll('#plus20-year-btns button').forEach(btn => {
+                        btn.onclick = function() {
+                            plus20SelectedYear = this.getAttribute('data-year');
+                            document.querySelectorAll('#plus20-year-btns button').forEach(b=>b.classList.remove('active'));
+                            this.classList.add('active');
+                            loadPlus20Intervals();
+                        };
+                    });
+                    // 默认选中全部
+                    document.querySelector('#plus20-year-btns button[data-year="all"]').classList.add('active');
+                }
+            } catch(e) {console.error('年份选项加载失败',e);}
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            fillPlus20YearOptions();
+        });
+
+        let plus20CurrentPage = 1;
+        const plus20PageSize = 50;
+        let plus20LastData = [];
+        let plus20LastMaxMissArr = [];
+        let plus20LastCurrentMissArr = [];
+        function renderPlus20Table(page, data, maxMissArr, currentMissArr) {
+            // 重新计算最大遗漏（基于当前筛选数据）
+            let dynamicMaxMissArr = [0,0,0,0,0,0,0];
+            for (let i = 0; i < 7; i++) {
+                let arr = data.map(row => row.intervals[i]?.miss_streak || 0);
+                dynamicMaxMissArr[i] = Math.max(...arr, 0);
+            }
+            let statHtml = '<div class="row mb-2">';
+            for (let i = 0; i < 7; i++) {
+                statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:90px;'><div class='fw-bold' style='font-size:1.1rem;'>号码${i+1}</div><div>最高遗漏: <span class='text-danger fw-bold'>${dynamicMaxMissArr[i]||0}</span></div><div>当前遗漏: <span class='text-primary fw-bold'>${currentMissArr[i]||0}</span></div></div></div>`;
+            }
+            statHtml += '</div>';
+            let html = statHtml;
+            html += '<div class="table-responsive" style="max-height:600px;overflow:auto;">';
+            html += '<table class="table table-bordered table-sm table-hover">';
+            html += '<thead><tr><th>期数</th><th>开奖时间</th>';
+            for (let i = 1; i <= 7; i++) html += `<th>号码${i}</th>`;
+            html += '<th>下一期第7码</th></tr></thead><tbody>';
+            const start = (page-1)*plus20PageSize;
+            const end = Math.min(start+plus20PageSize, data.length);
+            for(let idx=start; idx<end; idx++) {
+                const row = data[idx];
+                html += `<tr><td>${row.qishu}</td><td>${row.draw_time}</td>`;
+                row.intervals.forEach((item, i) => {
+                    let colorClass = getNumberColorClass(item.number);
+                    let hitText = item.hit ? '<span style="color:green;">命中</span>' : '<span style="color:red;">遗漏</span>';
+                    let highlightTd = !item.hit && item.miss_streak >= plus20Threshold ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
+                    let missText = !item.hit && item.miss_streak > 0 ? `连续${item.miss_streak}期未命中` : '';
+                    html += `<td style='min-width:110px;${highlightTd}'>
+                        <span class="lottery-number ${colorClass}">${item.number}</span>
+                        <div style='font-size:12px;'>区间:${item.range[0]}~${item.range[1]}</div>
+                        <div style='font-size:12px;'>${hitText}</div>
+                        <div style='font-size:12px;'>${missText}</div>
+                    </td>`;
+                });
+                html += `<td><span class='lottery-number ${getNumberColorClass(row.next_seventh)}'>${row.next_seventh ?? '-'}</span></td></tr>`;
+            }
+            html += '</tbody></table></div>';
+            // 分页按钮
+            html += `<div class='d-flex justify-content-between align-items-center my-2'>`;
+            html += `<button class='btn btn-sm btn-outline-primary' style='border-radius:6px;' ${page<=1?'disabled':''} onclick='plus20PageChange(-1)'><i class='fas fa-chevron-left'></i> 上一页</button>`;
+            html += `<span>第 ${page} / ${Math.ceil(data.length/plus20PageSize)} 页</span>`;
+            html += `<button class='btn btn-sm btn-outline-primary' style='border-radius:6px;' ${end>=data.length?'disabled':''} onclick='plus20PageChange(1)'>下一页 <i class='fas fa-chevron-right'></i></button>`;
+            html += `</div>`;
+            document.getElementById('plus20Table').innerHTML = html;
+        }
+        function plus20PageChange(delta) {
+            plus20CurrentPage += delta;
+            if (plus20CurrentPage < 1) plus20CurrentPage = 1;
+            if (plus20CurrentPage > Math.ceil(plus20LastData.length/plus20PageSize)) plus20CurrentPage = Math.ceil(plus20LastData.length/plus20PageSize);
+            renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr);
+        }
+        let plus20Threshold = 10;
         async function loadPlus20Intervals() {
-            const threshold = parseInt(document.getElementById('plus20-threshold').value || '10', 10);
+            plus20Threshold = parseInt(document.getElementById('plus20-threshold').value || '10', 10);
             document.getElementById('plus20Table').innerHTML = '<div class="loading">加载中...</div>';
             try {
                 const response = await fetch('/api/plus20-intervals');
@@ -1533,29 +1627,25 @@
                     document.getElementById('plus20Table').innerHTML = '<div class="error">没有找到数据</div>';
                     return;
                 }
-                const data = result.data;
-                let html = '<div class="table-responsive"><table class="table table-bordered table-sm table-hover">';
-                html += '<thead><tr><th>期数</th><th>开奖时间</th>';
-                for (let i = 1; i <= 7; i++) html += `<th>号码${i}</th>`;
-                html += '<th>下一期第7码</th></tr></thead><tbody>';
-                data.slice().reverse().forEach(row => {
-                    html += `<tr><td>${row.qishu}</td><td>${row.draw_time}</td>`;
-                    row.intervals.forEach((item, idx) => {
-                        let colorClass = getNumberColorClass(item.number);
-                        let hitText = item.hit ? '<span style="color:green;">命中</span>' : '<span style="color:red;">遗漏</span>';
-                        let highlightTd = !item.hit && item.miss_streak >= threshold ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
-                        let missText = !item.hit && item.miss_streak > 0 ? `连续${item.miss_streak}期未命中` : '';
-                        html += `<td style='min-width:110px;${highlightTd}'>
-                            <span class="lottery-number ${colorClass}">${item.number}</span>
-                            <div style='font-size:12px;'>区间:${item.range[0]}~${item.range[1]}</div>
-                            <div style='font-size:12px;'>${hitText}</div>
-                            <div style='font-size:12px;'>${missText}</div>
-                        </td>`;
+                let data = result.data;
+                // 年份筛选
+                if (plus20SelectedYear !== 'all') {
+                    data = data.filter(row => (row.qishu||'').toString().startsWith(plus20SelectedYear));
+                }
+                data.reverse();
+                // 统计当前遗漏（每个号码位的当前miss_streak）
+                let currentMissArr = [0,0,0,0,0,0,0];
+                if (data.length > 0) {
+                    let last = data[data.length-1];
+                    last.intervals.forEach((item, idx) => {
+                        currentMissArr[idx] = item.miss_streak;
                     });
-                    html += `<td><span class='lottery-number ${getNumberColorClass(row.next_seventh)}\'>${row.next_seventh ?? '-'}</span></td></tr>`;
-                });
-                html += '</tbody></table></div>';
-                document.getElementById('plus20Table').innerHTML = html;
+                }
+                plus20LastData = data;
+                plus20LastMaxMissArr = result.max_miss || [];
+                plus20LastCurrentMissArr = currentMissArr;
+                plus20CurrentPage = 1;
+                renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr);
             } catch (e) {
                 document.getElementById('plus20Table').innerHTML = '<div class="error">加载失败</div>';
             }
