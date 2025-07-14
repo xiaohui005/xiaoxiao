@@ -381,12 +381,12 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="plus20-tab" data-bs-toggle="tab" data-bs-target="#plus20" type="button" role="tab">
+                    <button class="nav-link" id="plus20-tab" data-bs-toggle="tab" data-bs-target="#plus20" type="button" role="tab">
                         <i class="fas fa-th-list"></i> +1~+20区间分析
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
+                    <button class="nav-link active" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
                         <i class="fas fa-table"></i> 开奖数据
                     </button>
                 </li>
@@ -1636,10 +1636,14 @@
                 // 统计当前遗漏（每个号码位的当前miss_streak）
                 let currentMissArr = [0,0,0,0,0,0,0];
                 if (data.length > 0) {
-                    let last = data[data.length-1];
-                    last.intervals.forEach((item, idx) => {
-                        currentMissArr[idx] = item.miss_streak;
-                    });
+                    // 找到qishu最大那一行
+                    let maxQishu = Math.max(...data.map(row => parseInt(row.qishu)));
+                    let maxRow = data.find(row => parseInt(row.qishu) === maxQishu);
+                    if (maxRow) {
+                        maxRow.intervals.forEach((item, idx) => {
+                            currentMissArr[idx] = item.miss_streak;
+                        });
+                    }
                 }
                 plus20LastData = data;
                 plus20LastMaxMissArr = result.max_miss || [];

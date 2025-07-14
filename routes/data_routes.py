@@ -144,7 +144,15 @@ def get_plus20_intervals():
                     'max_miss': max_miss[idx]
                 })
             records.append(entry)
-        return jsonify({'success': True, 'data': records, 'max_miss': max_miss})
+        # 计算当前遗漏（最大期数那一行的miss_streak）
+        current_miss = [0]*7
+        if records:
+            # 找到qishu最大的那一条记录
+            max_record = max(records, key=lambda r: int(r['qishu']))
+            last_intervals = max_record['intervals']
+            for idx in range(7):
+                current_miss[idx] = last_intervals[idx]['miss_streak']
+        return jsonify({'success': True, 'data': records, 'max_miss': max_miss, 'current_miss': current_miss})
     except Exception as e:
         print(f"plus20-intervals API错误: {str(e)}")
         traceback.print_exc()
