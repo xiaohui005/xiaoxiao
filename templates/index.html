@@ -98,13 +98,13 @@
             box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
         }
         
-        /* 绿色球 - 3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48 */
+        /* 绿色球 - 5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49 */
         .lottery-number.green {
             background: linear-gradient(135deg, #2ed573,rgb(24, 228, 24));
             box-shadow: 0 2px 8px rgba(96, 243, 11, 0.91);
         }
         
-        /* 暗蓝色球 - 5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49 */
+        /* 暗蓝色球 - 3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48 */
         .lottery-number.blue {
             background: linear-gradient(135deg, #3742fa, #2f3542);
             box-shadow: 0 2px 8px rgba(55, 66, 250, 0.3);
@@ -723,15 +723,15 @@
         // 获取号码的颜色类
         function getNumberColorClass(num) {
             const redNumbers = [1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46];
-            const greenNumbers = [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48];
-            const blueNumbers = [5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49];
+            const blueNumbers = [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48];
+            const greenNumbers = [5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49];
             
             if (redNumbers.includes(num)) {
                 return 'red';
-            } else if (greenNumbers.includes(num)) {
-                return 'green';
             } else if (blueNumbers.includes(num)) {
                 return 'blue';
+            } else if (greenNumbers.includes(num)) {
+                return 'green';
             } else {
                 return ''; // 默认颜色
             }
