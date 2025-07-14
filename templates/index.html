@@ -1578,19 +1578,40 @@
         let plus20LastData = [];
         let plus20LastMaxMissArr = [];
         let plus20LastCurrentMissArr = [];
-        function renderPlus20Table(page, data, maxMissArr, currentMissArr) {
+        function renderPlus20Table(page, data, maxMissArr, currentMissArr, latestInfo) {
             // 重新计算最大遗漏（基于当前筛选数据）
             let dynamicMaxMissArr = [0,0,0,0,0,0,0];
             for (let i = 0; i < 7; i++) {
                 let arr = data.map(row => row.intervals[i]?.miss_streak || 0);
                 dynamicMaxMissArr[i] = Math.max(...arr, 0);
             }
+            // 最新一期区间预算展示（以API返回的latest_info为准）
+            let latestHtml = '';
+            if (latestInfo) {
+                let maxQishu = parseInt(latestInfo.qishu);
+                let showQishu = maxQishu.toString();
+                let nextQishu = (maxQishu + 1).toString();
+                latestHtml += `<div class='mb-2'><strong>最新一期（${showQishu}）号码及区间，预测下一期期号：${nextQishu}</strong><div class='d-flex flex-wrap align-items-center'>`;
+                latestInfo.numbers.forEach((num, idx) => {
+                    // 计算区间
+                    const start = plus20SelectedRange.start;
+                    const end = plus20SelectedRange.end;
+                    const rng = [];
+                    for(let j=start;j<=end;j++) {
+                        rng.push((num + j - 1) % 49 + 1);
+                    }
+                    const rng_min = rng[0];
+                    const rng_max = rng[rng.length-1];
+                    latestHtml += `<div class='me-3 mb-1'><span class='lottery-number ${getNumberColorClass(num)}'>${num}</span><div style='font-size:12px;'>区间:${rng_min}~${rng_max}</div></div>`;
+                });
+                latestHtml += `</div></div>`;
+            }
             let statHtml = '<div class="row mb-2">';
             for (let i = 0; i < 7; i++) {
                 statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:90px;'><div class='fw-bold' style='font-size:1.1rem;'>号码${i+1}</div><div>最高遗漏: <span class='text-danger fw-bold'>${dynamicMaxMissArr[i]||0}</span></div><div>当前遗漏: <span class='text-primary fw-bold'>${currentMissArr[i]||0}</span></div></div></div>`;
             }
             statHtml += '</div>';
-            let html = statHtml;
+            let html = latestHtml + statHtml;
             html += '<div class="table-responsive" style="max-height:600px;overflow:auto;">';
             html += '<table class="table table-bordered table-sm table-hover">';
             html += '<thead><tr><th>期数</th><th>开奖时间</th>';
@@ -1628,7 +1649,7 @@
             plus20CurrentPage += delta;
             if (plus20CurrentPage < 1) plus20CurrentPage = 1;
             if (plus20CurrentPage > Math.ceil(plus20LastData.length/plus20PageSize)) plus20CurrentPage = Math.ceil(plus20LastData.length/plus20PageSize);
-            renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr);
+            renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr, plus20LastData[0]?.latest_info || null);
         }
         let plus20Threshold = 10;
         async function loadPlus20Intervals() {
@@ -1647,6 +1668,8 @@
                     data = data.filter(row => (row.qishu||'').toString().startsWith(plus20SelectedYear));
                 }
                 data.reverse();
+                // 用API返回的latest_info
+                let latestInfo = result.latest_info || null;
                 // 统计当前遗漏（每个号码位的当前miss_streak）
                 let currentMissArr = [0,0,0,0,0,0,0];
                 if (data.length > 0) {
@@ -1659,7 +1682,7 @@
                 plus20LastMaxMissArr = result.max_miss || [];
                 plus20LastCurrentMissArr = currentMissArr;
                 plus20CurrentPage = 1;
-                renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr);
+                renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr, latestInfo);
             } catch (e) {
                 document.getElementById('plus20Table').innerHTML = '<div class="error">加载失败</div>';
             }

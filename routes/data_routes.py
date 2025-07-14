@@ -144,7 +144,17 @@ def get_plus20_intervals():
                     'max_miss': max_miss[idx]
                 })
             records.append(entry)
-        return jsonify({'success': True, 'data': records, 'max_miss': max_miss})
+        # 查询最大qishu的开奖内容
+        max_qishu = data['qishu'].max()
+        max_row = data[data['qishu'] == max_qishu].iloc[0] if not data[data['qishu'] == max_qishu].empty else None
+        latest_info = None
+        if max_row is not None:
+            latest_info = {
+                'qishu': str(max_row['qishu']),
+                'draw_time': max_row['draw_time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notna(max_row['draw_time']) else None,
+                'numbers': [int(max_row[f'number{j}']) for j in range(1,8)]
+            }
+        return jsonify({'success': True, 'data': records, 'max_miss': max_miss, 'latest_info': latest_info})
     except Exception as e:
         print(f"plus20-intervals API错误: {str(e)}")
         traceback.print_exc()
