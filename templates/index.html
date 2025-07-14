@@ -366,11 +366,6 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="hotcold-tab" data-bs-toggle="tab" data-bs-target="#hotcold" type="button" role="tab">
-                        <i class="fas fa-fire"></i> 冷热号码
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="trends-tab" data-bs-toggle="tab" data-bs-target="#trends" type="button" role="tab">
                         <i class="fas fa-sort-numeric-up"></i> 第七码十位分析
                     </button>
@@ -422,24 +417,6 @@
                             <div class="chart-container">
                                 <h4><i class="fas fa-star"></i> 推荐详情</h4>
                                 <div id="frequencyDetails"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 冷热号码 -->
-                <div class="tab-pane fade" id="hotcold" role="tabpanel">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="chart-container">
-                                <h4><i class="fas fa-fire"></i> 热号 (最近100期)</h4>
-                                <canvas id="hotNumbersChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="chart-container">
-                                <h4><i class="fas fa-snowflake"></i> 冷号 (最近100期)</h4>
-                                <canvas id="coldNumbersChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -774,9 +751,6 @@
                     case '#frequency':
                         loadFrequency();
                         break;
-                    case '#hotcold':
-                        loadHotCold();
-                        break;
                     case '#trends':
                         loadSeventhTensAnalysis();
                         break;
@@ -816,8 +790,18 @@
         function displaySeventhNumberDetails(data) {
             const container = document.getElementById('frequencyDetails');
             const recommendations = data.recommendations || [];
-            
-            let html = '<div class="recommendation-list">';
+            // 新增：横向展示8个推荐号码球，按从小到大排序
+            const sortedNumbers = recommendations.map(r => r.number).sort((a, b) => a - b);
+            let html = '';
+            if (sortedNumbers.length > 0) {
+                html += '<div class="mb-3 d-flex align-items-center justify-content-center">';
+                sortedNumbers.forEach(num => {
+                    const colorClass = getNumberColorClass(parseInt(num));
+                    html += `<span class="lottery-number ${colorClass}" style="width: 38px; height: 38px; line-height: 38px; font-size: 16px; margin: 0 6px;">${num}</span>`;
+                });
+                html += '</div>';
+            }
+            html += '<div class="recommendation-list">';
             html += '<h5>推荐号码详情</h5>';
             
             // 显示策略信息
@@ -874,105 +858,6 @@
             html += '</div>';
             
             container.innerHTML = html;
-        }
-
-        // 加载冷热号码
-        async function loadHotCold() {
-            try {
-                const response = await fetch('/api/hot-cold');
-                const result = await response.json();
-                
-                if (result.success) {
-                    createHotColdCharts(result.data);
-                }
-            } catch (error) {
-                console.error('加载冷热号码失败:', error);
-            }
-        }
-
-        // 创建冷热号码图表
-        function createHotColdCharts(data) {
-            // 热号图表
-            const hotCtx = document.getElementById('hotNumbersChart').getContext('2d');
-            if (charts.hotNumbers) {
-                charts.hotNumbers.destroy();
-            }
-            
-            const hotNumbers = data.hot_numbers || {};
-            const hotLabels = Object.keys(hotNumbers);
-            const hotValues = Object.values(hotNumbers);
-            
-            // 根据号码设置颜色
-            const hotColors = hotLabels.map(num => {
-                const colorClass = getNumberColorClass(parseInt(num));
-                if (colorClass === 'red') return 'rgba(255, 71, 87, 0.8)';
-                if (colorClass === 'green') return 'rgba(46, 213, 115, 0.8)';
-                if (colorClass === 'blue') return 'rgba(55, 66, 250, 0.8)';
-                return 'rgba(255, 107, 107, 0.8)'; // 默认红色
-            });
-            
-            charts.hotNumbers = new Chart(hotCtx, {
-                type: 'bar',
-                data: {
-                    labels: hotLabels,
-                    datasets: [{
-                        label: '出现次数',
-                        data: hotValues,
-                        backgroundColor: hotColors,
-                        borderColor: hotColors.map(color => color.replace('0.8', '1')),
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-
-            // 冷号图表
-            const coldCtx = document.getElementById('coldNumbersChart').getContext('2d');
-            if (charts.coldNumbers) {
-                charts.coldNumbers.destroy();
-            }
-            
-            const coldNumbers = data.cold_numbers || {};
-            const coldLabels = Object.keys(coldNumbers);
-            const coldValues = Object.values(coldNumbers);
-            
-            // 根据号码设置颜色
-            const coldColors = coldLabels.map(num => {
-                const colorClass = getNumberColorClass(parseInt(num));
-                if (colorClass === 'red') return 'rgba(255, 71, 87, 0.8)';
-                if (colorClass === 'green') return 'rgba(46, 213, 115, 0.8)';
-                if (colorClass === 'blue') return 'rgba(55, 66, 250, 0.8)';
-                return 'rgba(78, 205, 196, 0.8)'; // 默认青色
-            });
-            
-            charts.coldNumbers = new Chart(coldCtx, {
-                type: 'bar',
-                data: {
-                    labels: coldLabels,
-                    datasets: [{
-                        label: '出现次数',
-                        data: coldValues,
-                        backgroundColor: coldColors,
-                        borderColor: coldColors.map(color => color.replace('0.8', '1')),
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
         }
 
         // 加载第N码十位分析

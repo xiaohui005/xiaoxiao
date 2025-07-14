@@ -270,9 +270,9 @@ class LotteryAnalyzer:
                     avg_interval = len(seventh_numbers)
                 intervals[number] = round(avg_interval, 1)
             
-            # 计算高频（出现次数前2）、热门（最近10期出现过）、间隔优选（最接近5期的2个）
+            # 计算高频（出现次数前5）、热门（最近10期出现过）、间隔优选（最接近5期的2个）
             freq_sorted = sorted(frequency.items(), key=lambda x: x[1], reverse=True)
-            high_freq_numbers = set([num for num, _ in freq_sorted[:2]])
+            high_freq_numbers = set([num for num, _ in freq_sorted[:5]])
             recent_10 = seventh_numbers[:10]
             hot_numbers = set([num for num in set(recent_10)])
             interval_sorted = sorted(intervals.items(), key=lambda x: abs(x[1] - 5))
