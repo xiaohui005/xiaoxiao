@@ -589,8 +589,20 @@
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
-            loadStatistics();
-            loadData(); // 默认加载开奖数据
+            // 默认激活开奖数据Tab
+            var dataTab = document.getElementById('data-tab');
+            if (dataTab) {
+                var tab = new bootstrap.Tab(dataTab);
+                tab.show();
+            }
+            fillTrendYearOptions();
+            loadSeventhTensAnalysis();
+            fillCombYearOptions();
+            fillSixpmYearOptions();
+            fillSixpmNOptions();
+            fillPlus20YearOptions();
+            fillPlus20RangeOptions();
+            loadData();
         });
 
         // 加载统计数据
