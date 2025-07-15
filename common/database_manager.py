@@ -559,3 +559,54 @@ class DatabaseManager:
         except Exception as e:
             print(f"删除关注点结果错误: {e}")
             return False 
+
+    def get_bet_report(self, place_id=None, is_correct=None, start_date=None, end_date=None):
+        """投注点报表统计"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    sql = "SELECT * FROM bets"
+                    conds = []
+                    params = []
+                    if place_id is not None:
+                        conds.append("place_id = %s")
+                        params.append(place_id)
+                    if is_correct is not None:
+                        conds.append("is_correct = %s")
+                        params.append(is_correct)
+                    if start_date is not None:
+                        conds.append("created_at >= %s")
+                        params.append(start_date)
+                    if end_date is not None:
+                        conds.append("created_at <= %s")
+                        params.append(end_date)
+                    if conds:
+                        sql += " WHERE " + " AND ".join(conds)
+                    cursor.execute(sql, params)
+                    results = cursor.fetchall()
+                    total = len(results)
+                    total_amount = sum(float(r['bet_amount'] or 0) for r in results)
+                    total_win = sum(float(r['win_amount'] or 0) for r in results)
+                    correct = sum(1 for r in results if r['is_correct'] == 1)
+                    wrong = sum(1 for r in results if r['is_correct'] == 0)
+                    unjudged = sum(1 for r in results if r['is_correct'] is None)
+                    profit = total_win - total_amount
+                    correct_rate = correct / total if total > 0 else 0
+                    wrong_rate = wrong / total if total > 0 else 0
+                    unjudged_rate = unjudged / total if total > 0 else 0
+                    return {
+                        'total': total,
+                        'total_amount': total_amount,
+                        'total_win': total_win,
+                        'profit': profit,
+                        'correct': correct,
+                        'wrong': wrong,
+                        'unjudged': unjudged,
+                        'correct_rate': correct_rate,
+                        'wrong_rate': wrong_rate,
+                        'unjudged_rate': unjudged_rate
+                    }
+        except Exception as e:
+            print(f"投注点报表统计错误: {e}")
+            traceback.print_exc()
+            return None 

@@ -569,3 +569,21 @@ def api_place_analysis():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/bet-report', methods=['GET'])
+def api_bet_report():
+    """投注点报表统计API"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        place_id = request.args.get('place_id', type=int)
+        is_correct = request.args.get('is_correct', type=int)
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        db_manager = get_db_manager()
+        data = db_manager.get_bet_report(place_id=place_id, is_correct=is_correct, start_date=start_date, end_date=end_date)
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        print(f"bet-report API错误: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500 
