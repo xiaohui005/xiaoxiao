@@ -78,16 +78,45 @@
             display: inline-block;
             background: #fff;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(102,126,234,0.08);
-            padding: 12px 18px;
+            box-shadow: 0 2px 8px rgba(102,126,234,0.12);
+            padding: 18px 24px 12px 24px;
+            min-width: 900px;
+            max-width: 100%;
         }
         .analysis-table-wrap table {
             margin-bottom: 0;
             background: transparent;
+            border-radius: 10px;
+            overflow: hidden;
+            width: 100%;
         }
         .analysis-table-wrap th, .analysis-table-wrap td {
             text-align: center;
-            font-size: 1.05rem;
+            font-size: 1.08rem;
+            vertical-align: middle;
+        }
+        .analysis-table-wrap th {
+            background: linear-gradient(90deg, #e9e4f0 60%, #f8fafc 100%);
+            color: #4b3fa7;
+            font-weight: bold;
+            border-bottom: 2px solid #bdb6e0;
+        }
+        .analysis-table-wrap tr {
+            transition: background 0.18s;
+        }
+        .analysis-table-wrap tbody tr:nth-child(even) {
+            background: #f6f7fb;
+        }
+        .analysis-table-wrap tbody tr:hover {
+            background: #e6eaff;
+        }
+        .analysis-table-wrap td {
+            padding: 8px 10px;
+        }
+        .analysis-table-wrap .fw-bold.mb-2 {
+            font-size: 1.13rem;
+            color: #4b3fa7;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -334,7 +363,36 @@
             </div>
             <!-- 投注点报表 -->
             <div class="tab-pane fade" id="bet-report" role="tabpanel">
-                <div class="alert alert-info">投注点报表功能开发中...</div>
+                <form class="row gx-2 gy-1 mb-3 align-items-end flex-wrap" id="betReportSearchForm" style="overflow-x:hidden;">
+                    <div class="col-12 mb-2">
+                        <label class="form-label mb-1">关注点</label>
+                        <div id="betReportPlaceBtns" class="btn-group btn-group-sm flex-wrap w-100" role="group" aria-label="关注点选择"></div>
+                        <input type="hidden" id="betReportPlaceId">
+                    </div>
+                    <div class="col-auto mb-1" style="min-width:180px;max-width:240px;">
+                        <label class="form-label mb-1">对错</label>
+                        <div id="betReportIsCorrectBtns" class="btn-group btn-group-sm w-100" role="group" aria-label="对错">
+                            <button type="button" class="btn btn-outline-secondary active" data-correct="">全部</button>
+                            <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
+                            <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
+                            <button type="button" class="btn btn-outline-dark" data-correct="-1">未判断</button>
+                        </div>
+                    </div>
+                    <div class="col-auto mb-1" style="min-width:220px;max-width:320px;">
+                        <label class="form-label mb-1">投注时间</label>
+                        <div class="d-flex flex-row flex-nowrap align-items-center">
+                            <input type="date" class="form-control form-control-sm me-1" id="betReportStartDate" style="max-width:120px;">
+                            <span style="font-size:13px;">-</span>
+                            <input type="date" class="form-control form-control-sm ms-1" id="betReportEndDate" style="max-width:120px;">
+                        </div>
+                    </div>
+                    <div class="col-auto mb-1 d-flex align-items-end">
+                        <button class="btn btn-primary btn-sm me-2" id="betReportBtnSearch" type="button">查询</button>
+                        <button class="btn btn-secondary btn-sm" id="betReportBtnReset" type="button">重置</button>
+                    </div>
+                </form>
+                <div id="betReportStats"></div>
+                <div id="betReportTable"></div>
             </div>
         </div>
     </div>
@@ -1283,4 +1341,189 @@
             });
         }
     });
+    </script>
+    <script>
+    // 渲染投注点按钮组
+    async function renderBetReportPlaceBtns() {
+      const resp = await fetch('/api/places/simple');
+      const result = await resp.json();
+      if (!result.success) return;
+      const places = result.data;
+      // 增加"全部"按钮
+      let btns = `<button type='button' class='btn btn-outline-secondary active' data-id=''>全部</button>`;
+      btns += places.map((p) =>
+        `<button type='button' class='btn btn-outline-primary' data-id='${p.id}'>${p.name}</button>`
+      ).join('');
+      document.getElementById('betReportPlaceBtns').innerHTML = btns;
+      // 默认选中"全部"
+      document.getElementById('betReportPlaceId').value = '';
+      // 绑定点击事件
+      document.querySelectorAll('#betReportPlaceBtns button').forEach(btn => {
+        btn.onclick = function() {
+          document.querySelectorAll('#betReportPlaceBtns button').forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          document.getElementById('betReportPlaceId').value = this.getAttribute('data-id');
+          fetchBetReportStats();
+          fetchBetReportTable();
+        };
+      });
+    }
+    // 对错按钮事件
+    function bindBetReportIsCorrectBtns() {
+      document.querySelectorAll('#betReportIsCorrectBtns button').forEach(btn => {
+        btn.onclick = function() {
+          document.querySelectorAll('#betReportIsCorrectBtns button').forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          fetchBetReportStats();
+          fetchBetReportTable();
+        };
+      });
+    }
+    // 获取当前对错筛选
+    function getBetReportIsCorrect() {
+      const btn = document.querySelector('#betReportIsCorrectBtns button.active');
+      return btn ? btn.getAttribute('data-correct') : '';
+    }
+    // 获取当前选中的关注点ID
+    function getBetReportPlaceId() {
+      const btn = document.querySelector('#betReportPlaceBtns button.active');
+      return btn ? btn.getAttribute('data-id') : '';
+    }
+    // ... 修改fetchBetReportStats和fetchBetReportTable ...
+    async function fetchBetReportStats() {
+      const place_id = getBetReportPlaceId();
+      let is_correct = getBetReportIsCorrect();
+      if (is_correct === '-1') is_correct = null;
+      const start_date = document.getElementById('betReportStartDate').value;
+      const end_date = document.getElementById('betReportEndDate').value;
+      const params = new URLSearchParams();
+      if (place_id) params.append('place_id', place_id);
+      if (is_correct !== '') params.append('is_correct', is_correct);
+      if (start_date) params.append('start_date', start_date);
+      if (end_date) params.append('end_date', end_date);
+      const resp = await fetch('/api/bet-report?' + params.toString());
+      const result = await resp.json();
+      if (result.success && result.data) {
+        renderBetReportStats(result.data);
+      } else {
+        document.getElementById('betReportStats').innerHTML = '<div class="alert alert-info">暂无数据</div>';
+      }
+    }
+    async function fetchBetReportTable(page=1, pageSize=30) {
+      const place_id = getBetReportPlaceId();
+      let is_correct = getBetReportIsCorrect();
+      if (is_correct === '-1') is_correct = null;
+      const start_date = document.getElementById('betReportStartDate').value;
+      const end_date = document.getElementById('betReportEndDate').value;
+      const params = new URLSearchParams();
+      if (place_id) params.append('place_id', place_id);
+      if (is_correct !== '') params.append('is_correct', is_correct);
+      if (start_date) params.append('start_date', start_date);
+      if (end_date) params.append('end_date', end_date);
+      const resp = await fetch('/api/bets?' + params.toString());
+      const result = await resp.json();
+      if (result.success && Array.isArray(result.data)) {
+        renderBetReportTable(result.data, page, pageSize);
+      } else {
+        document.getElementById('betReportTable').innerHTML = '<div class="alert alert-info">暂无明细数据</div>';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      // 投注点报表Tab初始化
+      const tabBetReport = document.getElementById('tab-bet-report');
+      if (tabBetReport) {
+        tabBetReport.addEventListener('click', async function() {
+          await renderBetReportPlaceBtns();
+          bindBetReportIsCorrectBtns();
+          await fetchBetReportStats();
+          await fetchBetReportTable();
+        });
+      }
+      // 页面初始加载时自动加载全部数据
+      if (window.location.hash === '#bet-report' || document.querySelector('.nav-link.active')?.id === 'tab-bet-report') {
+        renderBetReportPlaceBtns().then(() => {
+          bindBetReportIsCorrectBtns();
+          fetchBetReportStats();
+          fetchBetReportTable();
+        });
+      }
+      document.getElementById('betReportBtnSearch').onclick = function() {
+        fetchBetReportStats();
+        fetchBetReportTable();
+      };
+      document.getElementById('betReportBtnReset').onclick = function() {
+        document.getElementById('betReportSearchForm').reset();
+        // 重置按钮组
+        const allBtn = document.querySelector('#betReportPlaceBtns button[data-id=""]');
+        if (allBtn) {
+          document.querySelectorAll('#betReportPlaceBtns button').forEach(b => b.classList.remove('active'));
+          allBtn.classList.add('active');
+          document.getElementById('betReportPlaceId').value = '';
+        }
+        document.querySelectorAll('#betReportIsCorrectBtns button').forEach((b,i)=>{
+          b.classList.remove('active');
+          if(i===0) b.classList.add('active');
+        });
+        fetchBetReportStats();
+        fetchBetReportTable();
+      };
+    });
+    </script>
+    <script>
+    function renderBetReportStats(data) {
+      let html = `<div class='analysis-stat-card mb-3'>`;
+      html += `<div class='stat-item'>总投注：<span>${data.total}</span></div>`;
+      html += `<div class='stat-item'>总金额：<span>${data.total_amount.toFixed(2)}</span></div>`;
+      html += `<div class='stat-item'>命中：<span>${data.correct}</span></div>`;
+      html += `<div class='stat-item'>错误：<span>${data.wrong}</span></div>`;
+      html += `<div class='stat-item'>未判断：<span>${data.unjudged}</span></div>`;
+      html += `<div class='stat-item'>总赢取：<span>${data.total_win.toFixed(2)}</span></div>`;
+      html += `<div class='stat-item'>盈亏：<span>${data.profit.toFixed(2)}</span></div>`;
+      html += `<div class='stat-item'>命中率：<span>${(data.correct_rate*100).toFixed(2)}%</span></div>`;
+      html += `</div>`;
+      document.getElementById('betReportStats').innerHTML = html;
+    }
+    function renderBetReportTable(data, page=1, pageSize=30) {
+      if (!data.length) {
+        document.getElementById('betReportTable').innerHTML = '<div class="alert alert-info">暂无明细数据</div>';
+        return;
+      }
+      // 分页
+      const totalPage = Math.ceil(data.length / pageSize) || 1;
+      if (page > totalPage) page = totalPage;
+      const startIdx = (page - 1) * pageSize;
+      const endIdx = startIdx + pageSize;
+      const pageList = data.slice(startIdx, endIdx);
+      let html = `<div class='analysis-table-wrap'>`;
+      html += `<div class='fw-bold mb-2'>投注明细</div>`;
+      html += `<table class='table table-bordered table-sm table-hover'>`;
+      html += `<thead><tr><th>期数</th><th>投注金额</th><th>对错</th><th>赢取金额</th><th>投注时间</th><th>更新时间</th></tr></thead>`;
+      html += `<tbody>`;
+      pageList.forEach(item => {
+        html += `<tr>`;
+        html += `<td>${item.qishu}</td>`;
+        html += `<td>${Number(item.bet_amount).toFixed(2)}</td>`;
+        html += `<td>${item.is_correct === 1 ? '正确' : (item.is_correct === 0 ? '错误' : '未判断')}</td>`;
+        html += `<td>${Number(item.win_amount).toFixed(2)}</td>`;
+        html += `<td>${item.created_at || ''}</td>`;
+        html += `<td>${item.updated_at || ''}</td>`;
+        html += `</tr>`;
+      });
+      html += `</tbody></table>`;
+      // 分页控件
+      html += `<div class='d-flex justify-content-center align-items-center flex-wrap'>`;
+      html += `<nav><ul class='pagination pagination-sm mb-0'>`;
+      for(let i=1;i<=totalPage;i++){
+        html += `<li class='page-item${i===page?' active':''}'><a class='page-link' href='javascript:void(0)' onclick='fetchBetReportTable(${i},${pageSize})'>${i}</a></li>`;
+      }
+      html += `</ul></nav>`;
+      html += `<div class='ms-3' style='min-width:180px;max-width:240px;'><label class='form-label mb-0 me-1' style='font-size:13px;'>每页</label><select id='betReportPageSize' class='form-select form-select-sm' style='width:auto;display:inline-block;'><option value='10'>10</option><option value='30' selected>30</option><option value='100'>100</option></select></div>`;
+      html += `</div></div>`;
+      document.getElementById('betReportTable').innerHTML = html;
+      // 绑定每页条数切换
+      document.getElementById('betReportPageSize').onchange = function() {
+        fetchBetReportTable(1, Number(this.value));
+      };
+    }
+    // ... existing code ...
     </script>
