@@ -18,8 +18,8 @@
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             margin: 20px auto;
-            padding: 40px;
-            max-width: 1200px;
+            padding: 60px;
+            max-width: 1500px;
         }
         .header {
             text-align: center;
@@ -105,7 +105,71 @@
             </div>
             <!-- 投注登记点 -->
             <div class="tab-pane fade" id="bet-register" role="tabpanel">
-                <div class="alert alert-info">投注登记点功能开发中...</div>
+                <!-- 查询表单 -->
+                <form class="row gx-2 gy-1 mb-2 align-items-end flex-wrap" id="betSearchForm" style="overflow-x:hidden;" onsubmit="return false;">
+                    <div class="col-auto mb-1" style="min-width:120px;max-width:180px;">
+                        <input type="text" class="form-control form-control-sm" id="betSearchPlace" placeholder="关注点">
+                    </div>
+                    <div class="col-auto mb-1" style="min-width:90px;max-width:130px;">
+                        <input type="text" class="form-control form-control-sm" id="betSearchQishu" placeholder="期数">
+                    </div>
+                    <div class="col-auto mb-1" style="min-width:90px;max-width:130px;">
+                        <input type="number" class="form-control form-control-sm" id="betSearchAmount" placeholder="金额">
+                    </div>
+                    <div class="col-auto mb-1" style="min-width:90px;max-width:130px;">
+                        <input type="number" class="form-control form-control-sm" id="betSearchWin" placeholder="赢取">
+                    </div>
+                    <div class="col-auto mb-1" style="min-width:170px;max-width:220px;">
+                        <div id="betSearchCorrectBtns" class="btn-group btn-group-sm" role="group" aria-label="对错">
+                            <button type="button" class="btn btn-outline-secondary active" data-correct="">全部</button>
+                            <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
+                            <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
+                            <button type="button" class="btn btn-outline-dark" data-correct="-1">未判断</button>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-auto mb-1" style="min-width:220px;max-width:320px;">
+                        <div class="d-flex flex-row flex-md-nowrap align-items-center">
+                            <input type="date" class="form-control form-control-sm me-1" style="max-width:120px;" id="betSearchCreatedStart" placeholder="开始时间">
+                            <span style="font-size:13px;">-</span>
+                            <input type="date" class="form-control form-control-sm ms-1" style="max-width:120px;" id="betSearchCreatedEnd" placeholder="结束时间">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-auto d-flex align-items-end mb-1 mt-1 mt-md-0" style="min-width:100px;max-width:130px;">
+                        <button class="btn btn-primary btn-sm me-1" id="betBtnSearch" type="button">查</button>
+                        <button class="btn btn-secondary btn-sm" id="betBtnReset" type="button">重</button>
+                    </div>
+                </form>
+                <form id="betForm" class="row g-3 mb-4 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">关注点</label>
+                        <select class="form-select" id="betPlaceId" required></select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">期数</label>
+                        <input type="text" class="form-control" id="betQishu" required maxlength="20">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">投注金额</label>
+                        <input type="number" class="form-control" id="betAmount" min="0" step="0.01" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">赢取金额</label>
+                        <input type="number" class="form-control" id="winAmount" min="0" step="0.01">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">对错</label>
+                        <div id="betIsCorrectBtns" class="btn-group btn-group-sm w-100" role="group" aria-label="对错">
+                            <button type="button" class="btn btn-outline-secondary active" data-correct="">未判断</button>
+                            <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
+                            <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
+                        </div>
+                        <input type="hidden" id="betIsCorrect" value="">
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus"></i> 登记</button>
+                    </div>
+                </form>
+                <div id="betList"></div>
             </div>
             <!-- 关注点登记结果 -->
             <div class="tab-pane fade" id="focus-result" role="tabpanel">
@@ -206,6 +270,7 @@
             if (res.success) {
                 this.reset();
                 refreshPlacesCacheAndRender();
+                await renderBetPlaceOptions(); // 新增后刷新下拉框
             } else {
                 alert(res.error || '添加失败');
             }
@@ -213,6 +278,30 @@
         document.addEventListener('DOMContentLoaded', async function() {
             allPlacesCache = await fetchPlaces();
             renderFocusList();
+            // 绑定保存按钮事件（编辑关注点）
+            const saveEditPlaceBtn = document.getElementById('saveEditPlaceBtn');
+            if (saveEditPlaceBtn) {
+                saveEditPlaceBtn.onclick = async function() {
+                    const id = document.getElementById('editPlaceId').value;
+                    const name = document.getElementById('editPlaceName').value.trim();
+                    const desc = document.getElementById('editPlaceDesc').value.trim();
+                    if (!name) return alert('名称不能为空');
+                    // 调用API
+                    const resp = await fetch(`/api/places/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, description: desc })
+                    });
+                    const result = await resp.json();
+                    if (result.success) {
+                        // 关闭模态框
+                        bootstrap.Modal.getInstance(document.getElementById('editPlaceModal')).hide();
+                        refreshPlacesCacheAndRender();
+                    } else {
+                        alert(result.error || '保存失败');
+                    }
+                };
+            }
         });
     </script>
     <!-- 编辑模态框 -->
@@ -255,26 +344,357 @@
         const modal = new bootstrap.Modal(document.getElementById('editPlaceModal'));
         modal.show();
     }
-    document.getElementById('saveEditPlaceBtn').onclick = async function() {
-        const id = document.getElementById('editPlaceId').value;
-        const name = document.getElementById('editPlaceName').value.trim();
-        const desc = document.getElementById('editPlaceDesc').value.trim();
-        if (!name) return alert('名称不能为空');
-        // 调用API
-        const resp = await fetch(`/api/places/${id}`, {
+    // 投注点API交互
+    async function fetchBets(place_id) {
+        let url = '/api/bets';
+        if (place_id) url += `?place_id=${place_id}`;
+        const resp = await fetch(url);
+        const result = await resp.json();
+        if (result.success) return result.data;
+        return [];
+    }
+    async function addBet(data) {
+        const resp = await fetch('/api/bets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        return await resp.json();
+    }
+    async function deleteBet(id) {
+        const resp = await fetch(`/api/bets/${id}`, { method: 'DELETE' });
+        return await resp.json();
+    }
+    async function updateBet(id, data) {
+        const resp = await fetch(`/api/bets/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description: desc })
+            body: JSON.stringify(data)
         });
-        const result = await resp.json();
-        if (result.success) {
-            // 关闭模态框
-            bootstrap.Modal.getInstance(document.getElementById('editPlaceModal')).hide();
-            refreshPlacesCacheAndRender();
+        return await resp.json();
+    }
+    // 渲染投注点下拉
+    async function renderBetPlaceOptions() {
+        allPlacesCache = await fetchPlaces();
+        const sel = document.getElementById('betPlaceId');
+        sel.innerHTML = '<option value="">请选择关注点</option>' + allPlacesCache.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    }
+    // 分页参数
+    let betListPage = 1;
+    let betListPageSize = 50;
+    // 渲染投注记录列表
+    let allBetsCache = [];
+    async function renderBetList(page) {
+        page = page || betListPage;
+        const placeId = document.getElementById('betPlaceId').value;
+        allBetsCache = await fetchBets(placeId);
+        // 读取查询条件
+        const searchPlace = document.getElementById('betSearchPlace')?.value.trim();
+        const searchQishu = document.getElementById('betSearchQishu')?.value.trim();
+        const searchAmount = document.getElementById('betSearchAmount')?.value;
+        const searchWin = document.getElementById('betSearchWin')?.value;
+        let searchCorrect = '';
+        const correctBtns = document.getElementById('betSearchCorrectBtns');
+        if (correctBtns) {
+            const activeBtn = correctBtns.querySelector('button.active');
+            if (activeBtn) searchCorrect = activeBtn.getAttribute('data-correct');
+        }
+        const searchCreatedStart = document.getElementById('betSearchCreatedStart')?.value;
+        const searchCreatedEnd = document.getElementById('betSearchCreatedEnd')?.value;
+        let list = allBetsCache;
+        if (searchPlace) {
+            list = list.filter(item => {
+                const place = allPlacesCache.find(p => p.id === item.place_id);
+                return place && place.name && place.name.includes(searchPlace);
+            });
+        }
+        if (searchQishu) list = list.filter(item => item.qishu && item.qishu.includes(searchQishu));
+        if (searchAmount) list = list.filter(item => Number(item.bet_amount) == Number(searchAmount));
+        if (searchWin) list = list.filter(item => Number(item.win_amount) == Number(searchWin));
+        if (searchCorrect === '1' || searchCorrect === '0') {
+            list = list.filter(item => String(item.is_correct) === searchCorrect);
+        } else if (searchCorrect === '-1') {
+            list = list.filter(item => item.is_correct === '' || item.is_correct === null);
+        }
+        if (searchCreatedStart) list = list.filter(item => item.created_at && item.created_at.slice(0,10) >= searchCreatedStart);
+        if (searchCreatedEnd) list = list.filter(item => item.created_at && item.created_at.slice(0,10) <= searchCreatedEnd);
+        // 按期数倒序排列
+        list = list.sort((a, b) => (b.qishu || '').localeCompare(a.qishu || ''));
+        // 统计
+        let totalBet = 0, totalWin = 0, totalWinlose = 0;
+        let pageBet = 0, pageWin = 0, pageWinlose = 0;
+        list.forEach(item => {
+            totalBet += Number(item.bet_amount) || 0;
+            totalWin += Number(item.win_amount) || 0;
+            let winlose = 0;
+            if (item.is_correct === 1 || item.is_correct === 0) {
+                winlose = (Number(item.win_amount) || 0) - (Number(item.bet_amount) || 0);
+            }
+            totalWinlose += (item.is_correct === '' || item.is_correct === null) ? 0 : winlose;
+        });
+        // 分页
+        const totalPage = Math.ceil(list.length / betListPageSize) || 1;
+        if (page > totalPage) page = totalPage;
+        betListPage = page;
+        const startIdx = (page - 1) * betListPageSize;
+        const endIdx = startIdx + betListPageSize;
+        const pageList = list.slice(startIdx, endIdx);
+        // 本页统计
+        pageList.forEach(item => {
+            pageBet += Number(item.bet_amount) || 0;
+            pageWin += Number(item.win_amount) || 0;
+            let winlose = 0;
+            if (item.is_correct === 1 || item.is_correct === 0) {
+                winlose = (Number(item.win_amount) || 0) - (Number(item.bet_amount) || 0);
+            }
+            pageWinlose += (item.is_correct === '' || item.is_correct === null) ? 0 : winlose;
+        });
+        let html = '';
+        if (!list.length) {
+            html = '<div class="alert alert-info">暂无投注记录。</div>';
         } else {
-            alert(result.error || '保存失败');
+            html = '<table class="table table-bordered table-sm table-hover"><thead><tr><th>ID</th><th>关注点</th><th>期数</th><th>投注金额</th><th>赢取金额</th><th>对错</th><th>输赢</th><th>创建时间</th><th>操作</th></tr></thead><tbody>';
+            pageList.forEach(item => {
+                const place = allPlacesCache.find(p => p.id === item.place_id);
+                let winlose = 0;
+                if (item.is_correct === 1 || item.is_correct === 0) {
+                    winlose = (Number(item.win_amount) || 0) - (Number(item.bet_amount) || 0);
+                }
+                html += `<tr>`;
+                html += `<td>${item.id}</td>`;
+                html += `<td>${place ? place.name : item.place_id}</td>`;
+                html += `<td>${item.qishu}</td>`;
+                html += `<td>${item.bet_amount}</td>`;
+                html += `<td>${item.win_amount}</td>`;
+                html += `<td>${item.is_correct === 1 ? '正确' : (item.is_correct === 0 ? '错误' : '未判断')}</td>`;
+                html += `<td>${item.is_correct === '' || item.is_correct === null ? 0 : winlose}</td>`;
+                html += `<td>${item.created_at || ''}</td>`;
+                html += `<td>`;
+                html += `<button class='btn btn-primary btn-sm me-1' onclick='onEditBet(${item.id})'>编辑</button>`;
+                html += `<button class='btn btn-danger btn-sm' onclick='onDeleteBet(${item.id})'>删除</button>`;
+                html += `</td>`;
+                html += `</tr>`;
+            });
+            // 统计行
+            html += `<tr class='table-info fw-bold'><td colspan='3'>本页统计</td><td>${pageBet}</td><td>${pageWin}</td><td></td><td>${pageWinlose}</td><td colspan='2'></td></tr>`;
+            html += `<tr class='table-warning fw-bold'><td colspan='3'>总统计</td><td>${totalBet}</td><td>${totalWin}</td><td></td><td>${totalWinlose}</td><td colspan='2'></td></tr>`;
+            html += '</tbody></table>';
+            // 分页控件
+            html += `<div class='d-flex justify-content-center align-items-center flex-wrap'>`;
+            html += `<nav><ul class='pagination pagination-sm mb-0'>`;
+            for(let i=1;i<=totalPage;i++){
+                html += `<li class='page-item${i===page?' active':''}'><a class='page-link' href='javascript:void(0)' onclick='renderBetList(${i})'>${i}</a></li>`;
+            }
+            html += `</ul></nav>`;
+            html += `<div class='ms-3' style='min-width:220px;max-width:300px;'><label class='form-label mb-0 me-1' style='font-size:13px;'>每页</label><div id='betPageSizeBtns' class='btn-group btn-group-sm' role='group' aria-label='每页条数'><button type='button' class='btn btn-outline-primary' data-size='10'>10</button><button type='button' class='btn btn-outline-primary${betListPageSize===50?' active':''}' data-size='50'>50</button><button type='button' class='btn btn-outline-primary' data-size='100'>100</button><button type='button' class='btn btn-outline-primary' data-size='500'>500</button><button type='button' class='btn btn-outline-primary' data-size='1000'>1000</button></div></div>`;
+            html += `</div>`;
+        }
+        document.getElementById('betList').innerHTML = html;
+    }
+    // 投注登记表单提交
+    document.getElementById('betForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const place_id = document.getElementById('betPlaceId').value;
+        const qishu = document.getElementById('betQishu').value.trim();
+        const bet_amount = parseFloat(document.getElementById('betAmount').value) || 0;
+        const win_amount = parseFloat(document.getElementById('winAmount').value) || 0;
+        const is_correct = document.getElementById('betIsCorrect').value;
+        if (!place_id || !qishu) return alert('关注点和期数为必填项');
+        const res = await addBet({ place_id, qishu, bet_amount, win_amount, is_correct: is_correct === '' ? null : Number(is_correct) });
+        if (res.success) {
+            this.reset();
+            await renderBetPlaceOptions(); // 新增后刷新下拉框
+            renderBetList();
+        } else {
+            alert(res.error || '添加失败');
         }
     };
+    // 删除投注
+    async function onDeleteBet(id) {
+        if (!confirm('确定要删除该投注记录吗？')) return;
+        await deleteBet(id);
+        renderBetList();
+    }
+    // 编辑投注弹窗
+    let editingBetId = null;
+    async function onEditBet(id) {
+        const bet = allBetsCache.find(b => b.id === id);
+        if (!bet) return alert('未找到该投注记录');
+        editingBetId = id;
+        // 填充关注点下拉
+        const placeSel = document.getElementById('editBetPlaceId');
+        placeSel.innerHTML = allPlacesCache.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        placeSel.value = bet.place_id;
+        placeSel.disabled = false;
+        // 填充期数
+        const qishuInput = document.getElementById('editBetQishu');
+        qishuInput.value = bet.qishu;
+        qishuInput.disabled = false;
+        document.getElementById('editBetAmount').value = bet.bet_amount;
+        document.getElementById('editWinAmount').value = bet.win_amount;
+        // 设置对错按钮组
+        const editBtns = document.getElementById('editBetIsCorrectBtns');
+        if (editBtns) {
+            editBtns.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active');
+                if ((btn.getAttribute('data-correct') === '' && (bet.is_correct === null || bet.is_correct === '')) || btn.getAttribute('data-correct') === String(bet.is_correct)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+        document.getElementById('editBetIsCorrect').value = bet.is_correct === null ? '' : String(bet.is_correct);
+        const modal = new bootstrap.Modal(document.getElementById('editBetModal'));
+        modal.show();
+    }
+    document.addEventListener('DOMContentLoaded', async function() {
+        allPlacesCache = await fetchPlaces();
+        renderFocusList();
+        // 绑定保存按钮事件（编辑关注点）
+        const saveEditPlaceBtn = document.getElementById('saveEditPlaceBtn');
+        if (saveEditPlaceBtn) {
+            saveEditPlaceBtn.onclick = async function() {
+                const id = document.getElementById('editPlaceId').value;
+                const name = document.getElementById('editPlaceName').value.trim();
+                const desc = document.getElementById('editPlaceDesc').value.trim();
+                if (!name) return alert('名称不能为空');
+                // 调用API
+                const resp = await fetch(`/api/places/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description: desc })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    // 关闭模态框
+                    bootstrap.Modal.getInstance(document.getElementById('editPlaceModal')).hide();
+                    refreshPlacesCacheAndRender();
+                } else {
+                    alert(result.error || '保存失败');
+                }
+            };
+        }
+        // 绑定保存按钮事件（编辑投注记录）
+        const saveEditBetBtn = document.getElementById('saveEditBetBtn');
+        if (saveEditBetBtn) {
+            saveEditBetBtn.onclick = async function() {
+                const id = editingBetId;
+                const place_id = document.getElementById('editBetPlaceId').value;
+                const qishu = document.getElementById('editBetQishu').value.trim();
+                const bet_amount = parseFloat(document.getElementById('editBetAmount').value) || 0;
+                const win_amount = parseFloat(document.getElementById('editWinAmount').value) || 0;
+                const is_correct = document.getElementById('editBetIsCorrect').value;
+                if (!place_id || !qishu) return alert('关注点和期数为必填项');
+                const res = await updateBet(id, { bet_amount, win_amount, is_correct: is_correct === '' ? null : Number(is_correct) });
+                if (res.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('editBetModal')).hide();
+                    renderBetList();
+                } else {
+                    alert(res.error || '保存失败');
+                }
+            };
+        }
+        // 绑定投注查询和重置按钮事件
+        const betBtnSearch = document.getElementById('betBtnSearch');
+        if (betBtnSearch) {
+            betBtnSearch.onclick = function() {
+                renderBetList();
+            };
+        }
+        const betBtnReset = document.getElementById('betBtnReset');
+        if (betBtnReset) {
+            betBtnReset.onclick = function() {
+                document.getElementById('betSearchForm').reset();
+                renderBetList();
+            };
+        }
+        // 绑定每页条数按钮事件（表格渲染后动态绑定）
+        window.addEventListener('click', function(e) {
+            if (e.target && e.target.closest && e.target.closest('#betPageSizeBtns')) {
+                const btn = e.target.closest('button[data-size]');
+                if (btn) {
+                    const group = btn.parentElement;
+                    group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    betListPageSize = parseInt(btn.getAttribute('data-size'), 10);
+                    betListPage = 1;
+                    renderBetList(1);
+                }
+            }
+        });
+        // 绑定对错按钮事件
+        const betSearchCorrectBtns = document.getElementById('betSearchCorrectBtns');
+        if (betSearchCorrectBtns) {
+            betSearchCorrectBtns.querySelectorAll('button').forEach(btn => {
+                btn.onclick = function() {
+                    betSearchCorrectBtns.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    renderBetList(1);
+                };
+            });
+        }
+        // 绑定投注登记表单对错按钮事件
+        const betIsCorrectBtns = document.getElementById('betIsCorrectBtns');
+        if (betIsCorrectBtns) {
+            betIsCorrectBtns.querySelectorAll('button').forEach(btn => {
+                btn.onclick = function() {
+                    betIsCorrectBtns.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById('betIsCorrect').value = this.getAttribute('data-correct');
+                };
+            });
+        }
+        // 初始化投注点Tab
+        document.getElementById('tab-bet-register').addEventListener('click', async function() {
+            await renderBetPlaceOptions();
+            renderBetList();
+        });
+    });
     </script>
+    <!-- 编辑投注模态框 -->
+    <div class="modal fade" id="editBetModal" tabindex="-1" aria-labelledby="editBetModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editBetModalLabel">编辑投注记录</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editBetForm">
+              <div class="mb-3">
+                <label class="form-label">关注点</label>
+                <select class="form-select" id="editBetPlaceId">
+                  <option value="">请选择关注点</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">期数</label>
+                <input type="text" class="form-control" id="editBetQishu">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">投注金额</label>
+                <input type="number" class="form-control" id="editBetAmount" min="0" step="0.01">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">赢取金额</label>
+                <input type="number" class="form-control" id="editWinAmount" min="0" step="0.01">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">对错</label>
+                <div id="editBetIsCorrectBtns" class="btn-group btn-group-sm w-100" role="group" aria-label="对错">
+                  <button type="button" class="btn btn-outline-secondary" data-correct="">未判断</button>
+                  <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
+                  <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
+                </div>
+                <input type="hidden" id="editBetIsCorrect" value="">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" id="saveEditBetBtn">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
 </body>
 </html> 
