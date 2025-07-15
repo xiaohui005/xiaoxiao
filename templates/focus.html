@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>关注点登记 - 彩票开奖数据分析系统</title>
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/font-awesome-local.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/icons.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 20px auto;
+            padding: 40px;
+            max-width: 1200px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #333;
+        }
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1><i class="fas fa-star"></i> 关注点登记与分析</h1>
+            <button class="btn btn-outline-primary mt-2" onclick="window.location.href='/'"><i class="fas fa-home"></i> 返回首页</button>
+        </div>
+        <!-- 标签页导航 -->
+        <ul class="nav nav-tabs mb-4" id="focusTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-focus-register" data-bs-toggle="tab" data-bs-target="#focus-register" type="button" role="tab">登记关注点</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-bet-register" data-bs-toggle="tab" data-bs-target="#bet-register" type="button" role="tab">投注登记点</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-focus-result" data-bs-toggle="tab" data-bs-target="#focus-result" type="button" role="tab">关注点登记结果</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-focus-analysis" data-bs-toggle="tab" data-bs-target="#focus-analysis" type="button" role="tab">关注点分析</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-bet-report" data-bs-toggle="tab" data-bs-target="#bet-report" type="button" role="tab">投注点报表</button>
+            </li>
+        </ul>
+        <!-- 标签页内容 -->
+        <div class="tab-content" id="focusTabsContent">
+            <!-- 登记关注点 -->
+            <div class="tab-pane fade show active" id="focus-register" role="tabpanel">
+                <div class="mb-3" id="focusSearchBar">
+                    <form class="row gx-2 gy-1 align-items-end flex-nowrap" id="focusSearchForm" style="flex-wrap:nowrap;" onsubmit="return false;">
+                        <div class="col-auto" style="min-width:160px;">
+                            <label class="form-label">名称</label>
+                            <input type="text" class="form-control" id="searchName" placeholder="模糊匹配">
+                        </div>
+                        <div class="col-auto" style="min-width:160px;">
+                            <label class="form-label">描述</label>
+                            <input type="text" class="form-control" id="searchDesc" placeholder="模糊匹配">
+                        </div>
+                        <div class="col-auto" style="min-width:160px;">
+                            <label class="form-label">创建时间</label>
+                            <input type="date" class="form-control" id="searchCreated">
+                        </div>
+                        <div class="col-auto" style="min-width:160px;">
+                            <label class="form-label">更新时间</label>
+                            <input type="date" class="form-control" id="searchUpdated">
+                        </div>
+                        <div class="col-auto d-flex align-items-end" style="min-width:120px;">
+                            <button class="btn btn-primary me-2" id="btnSearch" type="button">查询</button>
+                            <button class="btn btn-secondary" id="btnReset" type="button">重置</button>
+                        </div>
+                    </form>
+                </div>
+                <form id="focusForm" class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">关注点名称</label>
+                        <input type="text" class="form-control" id="focusName" required maxlength="100">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">描述</label>
+                        <input type="text" class="form-control" id="focusDesc" maxlength="255">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100"><i class="fas fa-plus"></i> 登记</button>
+                    </div>
+                </form>
+                <div id="focusList"></div>
+            </div>
+            <!-- 投注登记点 -->
+            <div class="tab-pane fade" id="bet-register" role="tabpanel">
+                <div class="alert alert-info">投注登记点功能开发中...</div>
+            </div>
+            <!-- 关注点登记结果 -->
+            <div class="tab-pane fade" id="focus-result" role="tabpanel">
+                <div class="alert alert-info">关注点登记结果功能开发中...</div>
+            </div>
+            <!-- 关注点分析 -->
+            <div class="tab-pane fade" id="focus-analysis" role="tabpanel">
+                <div class="alert alert-info">关注点分析功能开发中...</div>
+            </div>
+            <!-- 投注点报表 -->
+            <div class="tab-pane fade" id="bet-report" role="tabpanel">
+                <div class="alert alert-info">投注点报表功能开发中...</div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        // 关注点API交互
+        let allPlacesCache = [];
+        async function fetchPlaces() {
+            const resp = await fetch('/api/places');
+            const result = await resp.json();
+            if (result.success) return result.data;
+            return [];
+        }
+        async function addPlace(name, description) {
+            const resp = await fetch('/api/places', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description })
+            });
+            return await resp.json();
+        }
+        async function deletePlace(id) {
+            const resp = await fetch(`/api/places/${id}`, { method: 'DELETE' });
+            return await resp.json();
+        }
+        // 渲染关注点列表，支持前端过滤
+        async function renderFocusList() {
+            if (!allPlacesCache.length) allPlacesCache = await fetchPlaces();
+            let list = allPlacesCache;
+            // 获取查询条件
+            const name = document.getElementById('searchName')?.value.trim();
+            const desc = document.getElementById('searchDesc')?.value.trim();
+            const created = document.getElementById('searchCreated')?.value;
+            const updated = document.getElementById('searchUpdated')?.value;
+            // 过滤
+            if (name) list = list.filter(item => item.name && item.name.includes(name));
+            if (desc) list = list.filter(item => item.description && item.description.includes(desc));
+            if (created) list = list.filter(item => item.created_at && item.created_at.slice(0,10) === created);
+            if (updated) list = list.filter(item => item.updated_at && item.updated_at.slice(0,10) === updated);
+            let html = '';
+            if (!list.length) {
+                html = '<div class="alert alert-info">暂无关注点，请登记。</div>';
+            } else {
+                html = '<table class="table table-bordered table-sm table-hover"><thead><tr><th>ID</th><th>名称</th><th>描述</th><th>创建时间</th><th>更新时间</th><th>操作</th></tr></thead><tbody>';
+                list.forEach(item => {
+                    html += `<tr>`;
+                    html += `<td>${item.id}</td>`;
+                    html += `<td>${item.name}</td>`;
+                    html += `<td>${item.description||''}</td>`;
+                    html += `<td>${item.created_at ? item.created_at.substring(0,10) : ''}</td>`;
+                    html += `<td>${item.updated_at ? item.updated_at.substring(0,10) : ''}</td>`;
+                    html += `<td>`;
+                    html += `<button class='btn btn-primary btn-sm me-1' onclick='onEditPlace(${item.id})'>编辑</button>`;
+                    html += `<button class='btn btn-danger btn-sm' onclick='onDeletePlace(${item.id})'>删除</button>`;
+                    html += `</td>`;
+                    html += `</tr>`;
+                });
+                html += '</tbody></table>';
+            }
+            document.getElementById('focusList').innerHTML = html;
+        }
+        async function onDeletePlace(id) {
+            if (!confirm('确定要删除该关注点吗？')) return;
+            await deletePlace(id);
+            refreshPlacesCacheAndRender();
+        }
+        // 查询和重置按钮事件
+        document.getElementById('btnSearch').onclick = function() {
+            renderFocusList();
+        };
+        document.getElementById('btnReset').onclick = function() {
+            document.getElementById('focusSearchForm').reset();
+            renderFocusList();
+        };
+        // 新增：每次增删后刷新缓存
+        async function refreshPlacesCacheAndRender() {
+            allPlacesCache = await fetchPlaces();
+            renderFocusList();
+        }
+        document.getElementById('focusForm').onsubmit = async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('focusName').value.trim();
+            const desc = document.getElementById('focusDesc').value.trim();
+            if (!name) return alert('名称不能为空');
+            const res = await addPlace(name, desc);
+            if (res.success) {
+                this.reset();
+                refreshPlacesCacheAndRender();
+            } else {
+                alert(res.error || '添加失败');
+            }
+        };
+        document.addEventListener('DOMContentLoaded', async function() {
+            allPlacesCache = await fetchPlaces();
+            renderFocusList();
+        });
+    </script>
+    <!-- 编辑模态框 -->
+    <div class="modal fade" id="editPlaceModal" tabindex="-1" aria-labelledby="editPlaceModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editPlaceModalLabel">编辑关注点</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editPlaceForm">
+              <input type="hidden" id="editPlaceId">
+              <div class="mb-3">
+                <label for="editPlaceName" class="form-label">名称</label>
+                <input type="text" class="form-control" id="editPlaceName" maxlength="100" required>
+              </div>
+              <div class="mb-3">
+                <label for="editPlaceDesc" class="form-label">描述</label>
+                <input type="text" class="form-control" id="editPlaceDesc" maxlength="255">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" id="saveEditPlaceBtn">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+    async function onEditPlace(id) {
+        // 获取数据
+        const place = allPlacesCache.find(p => p.id === id);
+        if (!place) return alert('未找到该关注点');
+        document.getElementById('editPlaceId').value = place.id;
+        document.getElementById('editPlaceName').value = place.name;
+        document.getElementById('editPlaceDesc').value = place.description || '';
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('editPlaceModal'));
+        modal.show();
+    }
+    document.getElementById('saveEditPlaceBtn').onclick = async function() {
+        const id = document.getElementById('editPlaceId').value;
+        const name = document.getElementById('editPlaceName').value.trim();
+        const desc = document.getElementById('editPlaceDesc').value.trim();
+        if (!name) return alert('名称不能为空');
+        // 调用API
+        const resp = await fetch(`/api/places/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description: desc })
+        });
+        const result = await resp.json();
+        if (result.success) {
+            // 关闭模态框
+            bootstrap.Modal.getInstance(document.getElementById('editPlaceModal')).hide();
+            refreshPlacesCacheAndRender();
+        } else {
+            alert(result.error || '保存失败');
+        }
+    };
+    </script>
+</body>
+</html> 

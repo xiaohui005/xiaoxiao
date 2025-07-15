@@ -323,6 +323,8 @@
             <div class="header">
                 <h1><i class="fas fa-chart-line"></i> 彩票开奖数据分析系统</h1>
                 <p class="text-muted">专业的彩票数据分析和统计平台</p>
+                <!-- 新增关注点登记按钮 -->
+                <button class="btn btn-warning mt-3" id="gotoFocusBtn"><i class="fas fa-star"></i> 关注点登记</button>
             </div>
 
             <!-- 统计卡片 -->
@@ -395,6 +397,7 @@
                         <i class="fas fa-table"></i> 开奖数据
                     </button>
                 </li>
+                <!-- 移除关注点登记Tab入口 -->
             </ul>
 
             <!-- 标签内容 -->
@@ -615,6 +618,13 @@
             (async function() {
                 await fetchLatestLotteryInfo();
             })();
+            // 新增：关注点登记按钮跳转
+            const gotoFocusBtn = document.getElementById('gotoFocusBtn');
+            if (gotoFocusBtn) {
+                gotoFocusBtn.addEventListener('click', function() {
+                    window.location.href = '/focus';
+                });
+            }
         });
 
         // 加载统计数据
@@ -1937,6 +1947,54 @@
                 }
             });
         });
+
+        // 关注点登记功能
+        function getFocusList() {
+            return JSON.parse(localStorage.getItem('focusList') || '[]');
+        }
+        function setFocusList(list) {
+            localStorage.setItem('focusList', JSON.stringify(list));
+        }
+        function renderFocusList() {
+            const list = getFocusList();
+            let html = '';
+            if (!list.length) {
+                html = '<div class="alert alert-info">暂无关注点，请登记。</div>';
+            } else {
+                html = '<table class="table table-bordered table-sm table-hover"><thead><tr><th>号码</th><th>区间</th><th>投注金额</th><th>备注</th><th>分析</th><th>操作</th></tr></thead><tbody>';
+                list.forEach((item, idx) => {
+                    html += `<tr>`;
+                    html += `<td>${item.number}</td>`;
+                    html += `<td>${item.range}</td>`;
+                    html += `<td>${item.bet||''}</td>`;
+                    html += `<td>${item.remark||''}</td>`;
+                    html += `<td>${item.analysis||'-'}</td>`;
+                    html += `<td><button class='btn btn-danger btn-sm' onclick='deleteFocus(${idx})'>删除</button></td>`;
+                    html += `</tr>`;
+                });
+                html += '</tbody></table>';
+            }
+            document.getElementById('focusList').innerHTML = html;
+        }
+        function deleteFocus(idx) {
+            const list = getFocusList();
+            list.splice(idx, 1);
+            setFocusList(list);
+            renderFocusList();
+        }
+        document.getElementById('focusForm').onsubmit = function(e) {
+            e.preventDefault();
+            const number = parseInt(document.getElementById('focusNumber').value, 10);
+            const range = document.getElementById('focusRange').value;
+            const bet = document.getElementById('focusBet').value;
+            const remark = document.getElementById('focusRemark').value;
+            const list = getFocusList();
+            list.push({ number, range, bet, remark, analysis: '-' });
+            setFocusList(list);
+            renderFocusList();
+            this.reset();
+        };
+        document.addEventListener('DOMContentLoaded', renderFocusList);
     </script>
 </body>
 </html> 

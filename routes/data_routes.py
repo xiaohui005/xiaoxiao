@@ -267,3 +267,74 @@ def get_minus20_intervals():
         print(f"minus20-intervals API错误: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500 
+
+# 关注点登记API
+@data_bp.route('/places', methods=['GET'])
+def api_get_places():
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        places = db_manager.get_places()
+        return jsonify({'success': True, 'data': places})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/places', methods=['POST'])
+def api_add_place():
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        data = request.get_json(force=True)
+        name = data.get('name')
+        description = data.get('description', '')
+        if not name:
+            return jsonify({'error': '关注点名称不能为空'}), 400
+        db_manager = get_db_manager()
+        place_id = db_manager.add_place(name, description)
+        if place_id:
+            return jsonify({'success': True, 'id': place_id})
+        else:
+            return jsonify({'error': '添加失败，名称可能重复'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/places/<int:place_id>', methods=['DELETE'])
+def api_delete_place(place_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        ok = db_manager.delete_place(place_id)
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/places/<int:place_id>', methods=['PUT'])
+def api_update_place(place_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        data = request.get_json(force=True)
+        name = data.get('name')
+        description = data.get('description')
+        is_correct = data.get('is_correct')
+        db_manager = get_db_manager()
+        ok = db_manager.update_place(place_id, name=name, description=description, is_correct=is_correct)
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/places/<int:place_id>', methods=['GET'])
+def api_get_place_by_id(place_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        place = db_manager.get_place_by_id(place_id)
+        if place:
+            return jsonify({'success': True, 'data': place})
+        else:
+            return jsonify({'error': '未找到该关注点'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 
