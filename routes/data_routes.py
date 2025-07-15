@@ -339,6 +339,19 @@ def api_get_place_by_id(place_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
 
+@data_bp.route('/places/simple', methods=['GET'])
+def api_get_places_simple():
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        places = db_manager.get_places()
+        # 只返回id和name
+        simple = [{'id': p['id'], 'name': p['name']} for p in places]
+        return jsonify({'success': True, 'data': simple})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # 投注点API
 @data_bp.route('/bets', methods=['GET'])
 def api_get_bets():
@@ -482,5 +495,77 @@ def api_delete_place_result(result_id):
         db_manager = get_db_manager()
         ok = db_manager.delete_place_result(result_id)
         return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/place-analysis', methods=['GET'])
+def api_place_analysis():
+    """关注点遗漏、连中等综合分析API"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        place_id = request.args.get('place_id', type=int)
+        if not place_id:
+            return jsonify({'error': 'place_id为必填项'}), 400
+        db_manager = get_db_manager()
+        # 查询所有结果，按qishu升序
+        results = db_manager.get_place_results(place_id=place_id)
+        results = sorted(results, key=lambda r: r['qishu'])
+        total, correct, wrong, unjudged = 0, 0, 0, 0
+        miss_spans, streak_spans = [], []
+        miss_dist, streak_dist = {}, {}
+        current_miss, max_miss, current_streak, max_streak = 0, 0, 0, 0
+        recent_results = []
+        for r in results:
+            if r['is_correct'] == 1:
+                correct += 1
+                current_streak += 1
+                if current_miss > 0:
+                    miss_spans.append(current_miss)
+                    miss_dist[str(current_miss)] = miss_dist.get(str(current_miss), 0) + 1
+                    max_miss = max(max_miss, current_miss)
+                    current_miss = 0
+            elif r['is_correct'] == 0:
+                wrong += 1
+                current_miss += 1
+                if current_streak > 0:
+                    streak_spans.append(current_streak)
+                    streak_dist[str(current_streak)] = streak_dist.get(str(current_streak), 0) + 1
+                    max_streak = max(max_streak, current_streak)
+                    current_streak = 0
+            else:
+                unjudged += 1
+            total += 1
+            recent_results.append({'qishu': r['qishu'], 'is_correct': r['is_correct']})
+        # 结尾处理
+        if current_miss > 0:
+            miss_spans.append(current_miss)
+            miss_dist[str(current_miss)] = miss_dist.get(str(current_miss), 0) + 1
+            max_miss = max(max_miss, current_miss)
+        if current_streak > 0:
+            streak_spans.append(current_streak)
+            streak_dist[str(current_streak)] = streak_dist.get(str(current_streak), 0) + 1
+            max_streak = max(max_streak, current_streak)
+        hit_rate = correct / (correct + wrong) if (correct + wrong) > 0 else 0
+        return jsonify({
+            'success': True,
+            'data': {
+                'place_id': place_id,
+                'total': total,
+                'correct': correct,
+                'wrong': wrong,
+                'unjudged': unjudged,
+                'hit_rate': hit_rate,
+                'current_miss': current_miss,
+                'max_miss': max_miss,
+                'miss_spans': miss_spans,
+                'miss_distribution': miss_dist,
+                'current_streak': current_streak,
+                'max_streak': max_streak,
+                'streak_spans': streak_spans,
+                'streak_distribution': streak_dist,
+                'recent_results': recent_results[-30:] # 最近30期
+            }
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
