@@ -338,3 +338,79 @@ def api_get_place_by_id(place_id):
             return jsonify({'error': '未找到该关注点'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+# 投注点API
+@data_bp.route('/bets', methods=['GET'])
+def api_get_bets():
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        place_id = request.args.get('place_id', type=int)
+        qishu = request.args.get('qishu')
+        db_manager = get_db_manager()
+        bets = db_manager.get_bets(place_id=place_id, qishu=qishu)
+        return jsonify({'success': True, 'data': bets})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/bets', methods=['POST'])
+def api_add_bet():
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        data = request.get_json(force=True)
+        place_id = data.get('place_id')
+        qishu = data.get('qishu')
+        bet_amount = data.get('bet_amount', 0.0)
+        is_correct = data.get('is_correct')
+        win_amount = data.get('win_amount', 0.0)
+        if not place_id or not qishu:
+            return jsonify({'error': 'place_id和qishu为必填项'}), 400
+        db_manager = get_db_manager()
+        bet_id = db_manager.add_bet(place_id, qishu, bet_amount, is_correct, win_amount)
+        if bet_id:
+            return jsonify({'success': True, 'id': bet_id})
+        else:
+            return jsonify({'error': '添加失败，可能已存在该期投注'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/bets/<int:bet_id>', methods=['GET'])
+def api_get_bet_by_id(bet_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        bet = db_manager.get_bet_by_id(bet_id)
+        if bet:
+            return jsonify({'success': True, 'data': bet})
+        else:
+            return jsonify({'error': '未找到该投注记录'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/bets/<int:bet_id>', methods=['PUT'])
+def api_update_bet(bet_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        data = request.get_json(force=True)
+        bet_amount = data.get('bet_amount')
+        is_correct = data.get('is_correct')
+        win_amount = data.get('win_amount')
+        db_manager = get_db_manager()
+        ok = db_manager.update_bet(bet_id, bet_amount=bet_amount, is_correct=is_correct, win_amount=win_amount)
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/bets/<int:bet_id>', methods=['DELETE'])
+def api_delete_bet(bet_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        ok = db_manager.delete_bet(bet_id)
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 
