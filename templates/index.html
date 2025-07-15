@@ -733,18 +733,20 @@
 
         // 获取号码的颜色类
         function getNumberColorClass(num) {
+            // 红色球
             const redNumbers = [1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46];
-            const greenNumbers = [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48];
-            const blueNumbers = [5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49];
-            
+            // 蓝色球
+            const blueNumbers = [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48];
+            // 绿色球
+            const greenNumbers = [5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49];
             if (redNumbers.includes(num)) {
                 return 'red';
-            } else if (greenNumbers.includes(num)) {
-                return 'green';
             } else if (blueNumbers.includes(num)) {
                 return 'blue';
+            } else if (greenNumbers.includes(num)) {
+                return 'green';
             } else {
-                return ''; // 默认颜色
+                return '';
             }
         }
 
@@ -800,8 +802,8 @@
             html += '<div class="mt-3">';
             html += '<div class="row text-center">';
             html += '<div class="col-md-4"><span class="lottery-number red" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">1</span> 鲜红色球</div>';
-            html += '<div class="col-md-4"><span class="lottery-number green" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">3</span> 绿色球</div>';
-            html += '<div class="col-md-4"><span class="lottery-number blue" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">5</span> 暗蓝色球</div>';
+            html += '<div class="col-md-4"><span class="lottery-number green" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">5</span> 绿色球</div>';
+            html += '<div class="col-md-4"><span class="lottery-number blue" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">3</span> 暗蓝色球</div>';
             html += '</div>';
             html += '</div>';
             
