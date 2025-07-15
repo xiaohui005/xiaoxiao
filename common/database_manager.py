@@ -431,12 +431,15 @@ class DatabaseManager:
                         fields.append("win_amount = %s")
                         params.append(win_amount)
                     if not fields:
+                        print(f'update_bet called but no fields to update! bet_id={bet_id}, bet_amount={bet_amount}, is_correct={is_correct}, win_amount={win_amount}')
                         return False
                     params.append(bet_id)
                     sql = f"UPDATE bets SET {', '.join(fields)} WHERE id = %s"
+                    print(f'update_bet SQL: {sql}, params: {params}')  # 新增调试输出
                     cursor.execute(sql, params)
                     conn.commit()
-                    return cursor.rowcount > 0
+                    # return cursor.rowcount > 0
+                    return True
         except Exception as e:
             print(f"更新投注记录错误: {e}")
             return False
@@ -451,4 +454,108 @@ class DatabaseManager:
                     return cursor.rowcount > 0
         except Exception as e:
             print(f"删除投注记录错误: {e}")
+            return False 
+
+    def add_place_result(self, place_id, qishu, is_correct=None):
+        """添加关注点结果记录"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO place_results (place_id, qishu, is_correct)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE is_correct=VALUES(is_correct), updated_at=CURRENT_TIMESTAMP
+                    """, (place_id, qishu, is_correct))
+                    conn.commit()
+                    return cursor.lastrowid
+        except Exception as e:
+            print(f"添加关注点结果错误: {e}")
+            return None
+
+    def get_place_results(self, place_id=None, qishu=None, is_correct=None):
+        """获取关注点结果列表，可按place_id、qishu、is_correct筛选"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    sql = "SELECT * FROM place_results"
+                    conds = []
+                    params = []
+                    if place_id is not None:
+                        conds.append("place_id = %s")
+                        params.append(place_id)
+                    if qishu is not None:
+                        conds.append("qishu = %s")
+                        params.append(qishu)
+                    if is_correct is not None:
+                        conds.append("is_correct = %s")
+                        params.append(is_correct)
+                    if conds:
+                        sql += " WHERE " + " AND ".join(conds)
+                    sql += " ORDER BY created_at DESC"
+                    cursor.execute(sql, params)
+                    results = cursor.fetchall()
+                    for row in results:
+                        for field in ('created_at', 'updated_at'):
+                            v = row.get(field)
+                            if v:
+                                if hasattr(v, 'strftime'):
+                                    row[field] = v.strftime('%Y-%m-%d')
+                                else:
+                                    row[field] = str(v)[:10]
+                    return results
+        except Exception as e:
+            print(f"获取关注点结果错误: {e}")
+            return []
+
+    def get_place_result_by_id(self, result_id):
+        """根据ID获取关注点结果"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT * FROM place_results WHERE id = %s", (result_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        for field in ('created_at', 'updated_at'):
+                            v = row.get(field)
+                            if v:
+                                if hasattr(v, 'strftime'):
+                                    row[field] = v.strftime('%Y-%m-%d')
+                                else:
+                                    row[field] = str(v)[:10]
+                    return row
+        except Exception as e:
+            print(f"获取关注点结果详情错误: {e}")
+            return None
+
+    def update_place_result(self, result_id, is_correct=None):
+        """更新关注点结果"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    fields = []
+                    params = []
+                    if is_correct is not None:
+                        fields.append("is_correct = %s")
+                        params.append(is_correct)
+                    if not fields:
+                        return False
+                    params.append(result_id)
+                    sql = f"UPDATE place_results SET {', '.join(fields)}, updated_at=CURRENT_TIMESTAMP WHERE id = %s"
+                    cursor.execute(sql, params)
+                    conn.commit()
+                    return cursor.rowcount > 0
+        except Exception as e:
+            print(f"更新关注点结果错误: {e}")
+            return False
+
+    def delete_place_result(self, result_id):
+        """删除关注点结果"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("DELETE FROM place_results WHERE id = %s", (result_id,))
+                    conn.commit()
+                    return cursor.rowcount > 0
+        except Exception as e:
+            print(f"删除关注点结果错误: {e}")
             return False 

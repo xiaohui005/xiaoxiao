@@ -414,3 +414,73 @@ def api_delete_bet(bet_id):
         return jsonify({'success': ok})
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/place-results', methods=['GET'])
+def api_get_place_results():
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        place_id = request.args.get('place_id', type=int)
+        qishu = request.args.get('qishu')
+        is_correct = request.args.get('is_correct', type=int)
+        db_manager = get_db_manager()
+        results = db_manager.get_place_results(place_id=place_id, qishu=qishu, is_correct=is_correct)
+        return jsonify({'success': True, 'data': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/place-results', methods=['POST'])
+def api_add_place_result():
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        data = request.get_json(force=True)
+        place_id = data.get('place_id')
+        qishu = data.get('qishu')
+        is_correct = data.get('is_correct')
+        db_manager = get_db_manager()
+        result_id = db_manager.add_place_result(place_id, qishu, is_correct)
+        if result_id:
+            return jsonify({'success': True, 'id': result_id})
+        else:
+            return jsonify({'error': '添加失败，可能已存在该期结果'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/place-results/<int:result_id>', methods=['GET'])
+def api_get_place_result_by_id(result_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        result = db_manager.get_place_result_by_id(result_id)
+        if result:
+            return jsonify({'success': True, 'data': result})
+        else:
+            return jsonify({'error': '未找到该记录'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/place-results/<int:result_id>', methods=['PUT'])
+def api_update_place_result(result_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        data = request.get_json(force=True)
+        is_correct = data.get('is_correct')
+        db_manager = get_db_manager()
+        ok = db_manager.update_place_result(result_id, is_correct=is_correct)
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/place-results/<int:result_id>', methods=['DELETE'])
+def api_delete_place_result(result_id):
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        ok = db_manager.delete_place_result(result_id)
+        return jsonify({'success': ok})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 
