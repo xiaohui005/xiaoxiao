@@ -60,5 +60,5 @@ if __name__ == '__main__':
     else:
         print("⚠️ 数据库连接失败")
         print("💡 建议使用演示版本: python app_demo.py")
-    print("🌐 访问地址: http://localhost:5001")
-    app.run(debug=True, host='0.0.0.0', port=5001) 
+    print("🌐 访问地址: http://localhost:5002")
+    app.run(debug=True, host='0.0.0.0', port=5002) 

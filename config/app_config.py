@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import json
 
 class AppConfig:
     """应用配置类"""
@@ -13,14 +14,19 @@ class AppConfig:
     PORT = 5001
     
     # 数据库配置
-    DATABASE_CONFIG = {
-        'host': 'localhost',
-        'port': 3306,
-        'user': 'root',
-        'password': 'root',
-        'database': 'lottery',
-        'charset': 'utf8mb4'
-    }
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'db_config.json')
+    if os.path.exists(config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            DATABASE_CONFIG = json.load(f)
+    else:
+        DATABASE_CONFIG = {
+            'host': 'localhost',
+            'port': 3306,
+            'user': 'root',
+            'password': 'root',
+            'database': 'lottery',
+            'charset': 'utf8mb4'
+        }
     
     # API配置
     API_PREFIX = '/api'
