@@ -7,6 +7,8 @@
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/font-awesome-local.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/icons.css') }}" rel="stylesheet">
+    <!-- 在<head>中引入select2样式（本地） -->
+    <link href="{{ url_for('static', filename='css/select2.min.css') }}" rel="stylesheet" />
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -134,6 +136,13 @@
                             <input type="date" class="form-control form-control-sm ms-1" style="max-width:120px;" id="betSearchCreatedEnd" placeholder="结束时间">
                         </div>
                     </div>
+                    <div class="col-12 col-md-auto mb-1" style="min-width:220px;max-width:320px;">
+                        <div class="d-flex flex-row flex-md-nowrap align-items-center">
+                            <input type="date" class="form-control form-control-sm me-1" style="max-width:120px;" id="betSearchUpdatedStart" placeholder="更新时间起">
+                            <span style="font-size:13px;">-</span>
+                            <input type="date" class="form-control form-control-sm ms-1" style="max-width:120px;" id="betSearchUpdatedEnd" placeholder="更新时间止">
+                        </div>
+                    </div>
                     <div class="col-12 col-md-auto d-flex align-items-end mb-1 mt-1 mt-md-0" style="min-width:100px;max-width:130px;">
                         <button class="btn btn-primary btn-sm me-1" id="betBtnSearch" type="button">查</button>
                         <button class="btn btn-secondary btn-sm" id="betBtnReset" type="button">重</button>
@@ -173,7 +182,58 @@
             </div>
             <!-- 关注点登记结果 -->
             <div class="tab-pane fade" id="focus-result" role="tabpanel">
-                <div class="alert alert-info">关注点登记结果功能开发中...</div>
+                <!-- 关注点登记结果Tab下查询表单美化 -->
+                <form class="row gx-4 gy-2 mb-3 align-items-end flex-wrap" id="placeResultSearchForm" style="overflow-x:hidden;padding:16px 0 8px 0;" onsubmit="return false;">
+                    <div class="col-auto mb-2" style="min-width:220px;max-width:300px;margin-right:24px;">
+                        <input type="text" class="form-control form-control-sm" id="resultSearchPlaceInput" placeholder="输入关注点名称" autocomplete="off" style="width:200px;">
+                        <ul id="resultSearchPlaceSuggest" class="list-group position-absolute" style="z-index:1000;display:none;max-height:200px;overflow-y:auto;width:200px;"></ul>
+                    </div>
+                    <div class="col-auto mb-2" style="min-width:120px;max-width:180px;margin-right:24px;">
+                        <input type="text" class="form-control form-control-sm" id="resultSearchQishu" placeholder="期数">
+                    </div>
+                    <div class="col-auto mb-2" style="min-width:200px;max-width:260px;margin-right:24px;">
+                        <div id="resultSearchCorrectBtns" class="btn-group btn-group-sm" role="group" aria-label="对错">
+                            <button type="button" class="btn btn-outline-secondary active" data-correct="">全部</button>
+                            <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
+                            <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
+                            <button type="button" class="btn btn-outline-dark" data-correct="-1">未判断</button>
+                        </div>
+                    </div>
+                    <div class="col-auto d-flex align-items-end mb-2" style="min-width:140px;max-width:180px;margin-right:24px;">
+                        <button class="btn btn-primary btn-sm me-2" id="resultBtnSearch" type="button">查</button>
+                        <button class="btn btn-secondary btn-sm" id="resultBtnReset" type="button">重</button>
+                    </div>
+                </form>
+                <div id="placeResultList"></div>
+                <!-- 编辑对错模态框 -->
+                <div class="modal fade" id="editPlaceResultModal" tabindex="-1" aria-labelledby="editPlaceResultModalLabel" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="editPlaceResultModalLabel">编辑对错</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body">
+                        <form id="editPlaceResultForm">
+                          <input type="hidden" id="editPlaceResultId">
+                          <div class="mb-3">
+                            <label class="form-label">对错</label>
+                            <div id="editPlaceResultCorrectBtns" class="btn-group btn-group-sm w-100" role="group" aria-label="对错">
+                              <button type="button" class="btn btn-outline-secondary" data-correct="">未判断</button>
+                              <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
+                              <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
+                            </div>
+                            <input type="hidden" id="editPlaceResultIsCorrect" value="">
+                          </div>
+                        </form>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" id="saveEditPlaceResultBtn">保存</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
             </div>
             <!-- 关注点分析 -->
             <div class="tab-pane fade" id="focus-analysis" role="tabpanel">
@@ -401,6 +461,8 @@
         }
         const searchCreatedStart = document.getElementById('betSearchCreatedStart')?.value;
         const searchCreatedEnd = document.getElementById('betSearchCreatedEnd')?.value;
+        const searchUpdatedStart = document.getElementById('betSearchUpdatedStart')?.value;
+        const searchUpdatedEnd = document.getElementById('betSearchUpdatedEnd')?.value;
         let list = allBetsCache;
         if (searchPlace) {
             list = list.filter(item => {
@@ -418,6 +480,8 @@
         }
         if (searchCreatedStart) list = list.filter(item => item.created_at && item.created_at.slice(0,10) >= searchCreatedStart);
         if (searchCreatedEnd) list = list.filter(item => item.created_at && item.created_at.slice(0,10) <= searchCreatedEnd);
+        if (searchUpdatedStart) list = list.filter(item => item.updated_at && item.updated_at.slice(0,10) >= searchUpdatedStart);
+        if (searchUpdatedEnd) list = list.filter(item => item.updated_at && item.updated_at.slice(0,10) <= searchUpdatedEnd);
         // 按期数倒序排列
         list = list.sort((a, b) => (b.qishu || '').localeCompare(a.qishu || ''));
         // 统计
@@ -453,7 +517,7 @@
         if (!list.length) {
             html = '<div class="alert alert-info">暂无投注记录。</div>';
         } else {
-            html = '<table class="table table-bordered table-sm table-hover"><thead><tr><th>ID</th><th>关注点</th><th>期数</th><th>投注金额</th><th>赢取金额</th><th>对错</th><th>输赢</th><th>创建时间</th><th>操作</th></tr></thead><tbody>';
+            html = '<table class="table table-bordered table-sm table-hover"><thead><tr><th>ID</th><th>关注点</th><th>期数</th><th>投注金额</th><th>赢取金额</th><th>对错</th><th>输赢</th><th>创建时间</th><th>更新时间</th><th>操作</th></tr></thead><tbody>';
             pageList.forEach(item => {
                 const place = allPlacesCache.find(p => p.id === item.place_id);
                 let winlose = 0;
@@ -469,6 +533,7 @@
                 html += `<td>${item.is_correct === 1 ? '正确' : (item.is_correct === 0 ? '错误' : '未判断')}</td>`;
                 html += `<td>${item.is_correct === '' || item.is_correct === null ? 0 : winlose}</td>`;
                 html += `<td>${item.created_at || ''}</td>`;
+                html += `<td>${item.updated_at || ''}</td>`;
                 html += `<td>`;
                 html += `<button class='btn btn-primary btn-sm me-1' onclick='onEditBet(${item.id})'>编辑</button>`;
                 html += `<button class='btn btn-danger btn-sm' onclick='onDeleteBet(${item.id})'>删除</button>`;
@@ -525,11 +590,11 @@
         const placeSel = document.getElementById('editBetPlaceId');
         placeSel.innerHTML = allPlacesCache.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
         placeSel.value = bet.place_id;
-        placeSel.disabled = false;
+        placeSel.disabled = true; // 禁用关注点
         // 填充期数
         const qishuInput = document.getElementById('editBetQishu');
         qishuInput.value = bet.qishu;
-        qishuInput.disabled = false;
+        qishuInput.disabled = true; // 禁用期数
         document.getElementById('editBetAmount').value = bet.bet_amount;
         document.getElementById('editWinAmount').value = bet.win_amount;
         // 设置对错按钮组
@@ -540,6 +605,12 @@
                 if ((btn.getAttribute('data-correct') === '' && (bet.is_correct === null || bet.is_correct === '')) || btn.getAttribute('data-correct') === String(bet.is_correct)) {
                     btn.classList.add('active');
                 }
+                // 绑定点击事件，确保每次都能切换active并同步input
+                btn.onclick = function() {
+                    editBtns.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById('editBetIsCorrect').value = this.getAttribute('data-correct');
+                };
             });
         }
         document.getElementById('editBetIsCorrect').value = bet.is_correct === null ? '' : String(bet.is_correct);
@@ -578,13 +649,14 @@
         if (saveEditBetBtn) {
             saveEditBetBtn.onclick = async function() {
                 const id = editingBetId;
-                const place_id = document.getElementById('editBetPlaceId').value;
-                const qishu = document.getElementById('editBetQishu').value.trim();
-                const bet_amount = parseFloat(document.getElementById('editBetAmount').value) || 0;
-                const win_amount = parseFloat(document.getElementById('editWinAmount').value) || 0;
-                const is_correct = document.getElementById('editBetIsCorrect').value;
-                if (!place_id || !qishu) return alert('关注点和期数为必填项');
-                const res = await updateBet(id, { bet_amount, win_amount, is_correct: is_correct === '' ? null : Number(is_correct) });
+                const bet_amount_raw = document.getElementById('editBetAmount').value;
+                const win_amount_raw = document.getElementById('editWinAmount').value;
+                const is_correct_raw = document.getElementById('editBetIsCorrect').value;
+                const bet_amount = bet_amount_raw === '' ? null : Number(bet_amount_raw);
+                const win_amount = win_amount_raw === '' ? null : Number(win_amount_raw);
+                const is_correct = is_correct_raw === '' ? null : Number(is_correct_raw);
+                if (!id) return alert('ID丢失');
+                const res = await updateBet(id, { bet_amount, win_amount, is_correct });
                 if (res.success) {
                     bootstrap.Modal.getInstance(document.getElementById('editBetModal')).hide();
                     renderBetList();
@@ -681,9 +753,9 @@
               <div class="mb-3">
                 <label class="form-label">对错</label>
                 <div id="editBetIsCorrectBtns" class="btn-group btn-group-sm w-100" role="group" aria-label="对错">
-                  <button type="button" class="btn btn-outline-secondary" data-correct="">未判断</button>
-                  <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
-                  <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
+                    <button type="button" class="btn btn-outline-secondary" data-correct="">未判断</button>
+                    <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
+                    <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
                 </div>
                 <input type="hidden" id="editBetIsCorrect" value="">
               </div>
@@ -696,5 +768,269 @@
         </div>
       </div>
     </div>
+    <script>
+    <!-- 关注点登记结果API -->
+    async function fetchPlaceResults(params={}) {
+        const url = new URL('/api/place-results', window.location.origin);
+        Object.entries(params).forEach(([k,v])=>{ if(v!==''&&v!==null&&v!==undefined) url.searchParams.append(k,v); });
+        const resp = await fetch(url);
+        const result = await resp.json();
+        if (result.success) return result.data;
+        return [];
+    }
+    async function updatePlaceResult(id, is_correct) {
+        const resp = await fetch(`/api/place-results/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_correct })
+        });
+        return await resp.json();
+    }
+    async function deletePlaceResult(id) {
+        const resp = await fetch(`/api/place-results/${id}`, { method: 'DELETE' });
+        return await resp.json();
+    }
+    // 渲染关注点结果下拉（已废弃）
+    // function renderResultPlaceOptions() { ... }
+    // 新：模糊输入关注点名称自动提示
+    function setupResultPlaceInput() {
+        const input = document.getElementById('resultSearchPlaceInput');
+        const suggest = document.getElementById('resultSearchPlaceSuggest');
+        input.addEventListener('input', function() {
+            const val = input.value.trim().toLowerCase();
+            if (!val) {
+                suggest.style.display = 'none';
+                suggest.innerHTML = '';
+                return;
+            }
+            const matches = allPlacesCache.filter(p => p.name && p.name.toLowerCase().includes(val));
+            if (!matches.length) {
+                suggest.style.display = 'none';
+                suggest.innerHTML = '';
+                return;
+            }
+            suggest.innerHTML = matches.map(p => `<li class='list-group-item list-group-item-action' data-id='${p.id}'>${p.name}</li>`).join('');
+            suggest.style.display = 'block';
+        });
+        // 选择建议
+        suggest.addEventListener('click', function(e) {
+            if (e.target && e.target.matches('li[data-id]')) {
+                input.value = e.target.textContent;
+                input.dataset.placeId = e.target.getAttribute('data-id');
+                suggest.style.display = 'none';
+                renderPlaceResultList(1);
+            }
+        });
+        // 失去焦点隐藏建议
+        input.addEventListener('blur', function() {
+            setTimeout(()=>{suggest.style.display = 'none';}, 200);
+        });
+        // 清除placeId
+        input.addEventListener('focus', function() {
+            input.dataset.placeId = '';
+        });
+    }
+    // 渲染关注点结果列表
+    let placeResultPage = 1;
+    let placeResultPageSize = 50;
+    let allPlaceResultsCache = [];
+    async function renderPlaceResultList(page) {
+        page = page || placeResultPage;
+        // 获取筛选条件
+        const placeInput = document.getElementById('resultSearchPlaceInput');
+        const place_id = placeInput.dataset.placeId || '';
+        const qishu = document.getElementById('resultSearchQishu').value.trim();
+        let searchCorrect = '';
+        const correctBtns = document.getElementById('resultSearchCorrectBtns');
+        if (correctBtns) {
+            const activeBtn = correctBtns.querySelector('button.active');
+            if (activeBtn) searchCorrect = activeBtn.getAttribute('data-correct');
+        }
+        let is_correct = '';
+        if (searchCorrect === '1' || searchCorrect === '0') is_correct = searchCorrect;
+        else if (searchCorrect === '-1') is_correct = null;
+        // 获取数据
+        allPlaceResultsCache = await fetchPlaceResults({ place_id, qishu, is_correct });
+        // 前端再做期数倒序
+        let list = allPlaceResultsCache.sort((a,b)=>(b.qishu||'').localeCompare(a.qishu||''));
+        // 分页
+        const totalPage = Math.ceil(list.length / placeResultPageSize) || 1;
+        if (page > totalPage) page = totalPage;
+        placeResultPage = page;
+        const startIdx = (page - 1) * placeResultPageSize;
+        const endIdx = startIdx + placeResultPageSize;
+        const pageList = list.slice(startIdx, endIdx);
+        let html = '';
+        if (!list.length) {
+            html = '<div class="alert alert-info">暂无关注点登记结果。</div>';
+        } else {
+            html = '<table class="table table-bordered table-sm table-hover"><thead><tr><th>ID</th><th>关注点</th><th>期数</th><th>对错</th><th>创建时间</th><th>更新时间</th><th>操作</th></tr></thead><tbody>';
+            pageList.forEach(item => {
+                const place = allPlacesCache.find(p => p.id === item.place_id);
+                html += `<tr>`;
+                html += `<td>${item.id}</td>`;
+                html += `<td>${place ? place.name : item.place_id}</td>`;
+                html += `<td>${item.qishu}</td>`;
+                html += `<td>${item.is_correct === 1 ? '正确' : (item.is_correct === 0 ? '错误' : '未判断')}</td>`;
+                html += `<td>${item.created_at || ''}</td>`;
+                html += `<td>${item.updated_at || ''}</td>`;
+                html += `<td>`;
+                html += `<button class='btn btn-primary btn-sm me-1' onclick='onEditPlaceResult(${item.id})'>编辑</button>`;
+                html += `<button class='btn btn-danger btn-sm' onclick='onDeletePlaceResult(${item.id})'>删除</button>`;
+                html += `</td>`;
+                html += `</tr>`;
+            });
+            html += '</tbody></table>';
+            // 分页控件
+            html += `<div class='d-flex justify-content-center align-items-center flex-wrap'>`;
+            html += `<nav><ul class='pagination pagination-sm mb-0'>`;
+            for(let i=1;i<=totalPage;i++){
+                html += `<li class='page-item${i===page?' active':''}'><a class='page-link' href='javascript:void(0)' onclick='renderPlaceResultList(${i})'>${i}</a></li>`;
+            }
+            html += `</ul></nav>`;
+            html += `<div class='ms-3' style='min-width:220px;max-width:300px;'><label class='form-label mb-0 me-1' style='font-size:13px;'>每页</label><div id='placeResultPageSizeBtns' class='btn-group btn-group-sm' role='group' aria-label='每页条数'><button type='button' class='btn btn-outline-primary' data-size='10'>10</button><button type='button' class='btn btn-outline-primary${placeResultPageSize===50?' active':''}' data-size='50'>50</button><button type='button' class='btn btn-outline-primary' data-size='100'>100</button><button type='button' class='btn btn-outline-primary' data-size='500'>500</button><button type='button' class='btn btn-outline-primary' data-size='1000'>1000</button></div></div>`;
+            html += `</div>`;
+        }
+        document.getElementById('placeResultList').innerHTML = html;
+    }
+    // 编辑对错弹窗
+    let editingPlaceResultId = null;
+    async function onEditPlaceResult(id) {
+        const item = allPlaceResultsCache.find(r => r.id === id);
+        if (!item) return alert('未找到该记录');
+        editingPlaceResultId = id;
+        // 设置按钮组
+        const editBtns = document.getElementById('editPlaceResultCorrectBtns');
+        if (editBtns) {
+            editBtns.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active');
+                if ((btn.getAttribute('data-correct') === '' && (item.is_correct === null || item.is_correct === '')) || btn.getAttribute('data-correct') === String(item.is_correct)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+        document.getElementById('editPlaceResultIsCorrect').value = item.is_correct === null ? '' : String(item.is_correct);
+        const modal = new bootstrap.Modal(document.getElementById('editPlaceResultModal'));
+        modal.show();
+    }
+    // 删除
+    async function onDeletePlaceResult(id) {
+        if (!confirm('确定要删除该记录吗？')) return;
+        await deletePlaceResult(id);
+        renderPlaceResultList();
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        // 关注点结果Tab初始化
+        document.getElementById('tab-focus-result').addEventListener('click', function() {
+            setupResultPlaceInput(); // 确保每次切换Tab都初始化输入提示
+            renderPlaceResultList();
+        });
+        // 查询和重置
+        document.getElementById('resultBtnSearch').onclick = function() {
+            renderPlaceResultList(1);
+        };
+        document.getElementById('resultBtnReset').onclick = function() {
+            document.getElementById('placeResultSearchForm').reset();
+            // 重置对错按钮
+            document.querySelectorAll('#resultSearchCorrectBtns button').forEach(btn=>btn.classList.remove('active'));
+            document.querySelector('#resultSearchCorrectBtns button[data-correct=""]').classList.add('active');
+            renderPlaceResultList(1);
+        };
+        // 对错按钮事件
+        document.querySelectorAll('#resultSearchCorrectBtns button').forEach(btn => {
+            btn.onclick = function() {
+                document.querySelectorAll('#resultSearchCorrectBtns button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                renderPlaceResultList(1);
+            };
+        });
+        // 每页条数按钮
+        window.addEventListener('click', function(e) {
+            if (e.target && e.target.closest && e.target.closest('#placeResultPageSizeBtns')) {
+                const btn = e.target.closest('button[data-size]');
+                if (btn) {
+                    const group = btn.parentElement;
+                    group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    placeResultPageSize = parseInt(btn.getAttribute('data-size'), 10);
+                    placeResultPage = 1;
+                    renderPlaceResultList(1);
+                }
+            }
+        });
+        // 编辑对错弹窗按钮
+        const editBtns = document.getElementById('editPlaceResultCorrectBtns');
+        if (editBtns) {
+            editBtns.querySelectorAll('button').forEach(btn => {
+                btn.onclick = function() {
+                    editBtns.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById('editPlaceResultIsCorrect').value = this.getAttribute('data-correct');
+                };
+            });
+        }
+        // 保存编辑
+        document.getElementById('saveEditPlaceResultBtn').onclick = async function() {
+            const id = editingPlaceResultId;
+            const is_correct = document.getElementById('editPlaceResultIsCorrect').value;
+            const res = await updatePlaceResult(id, is_correct === '' ? null : Number(is_correct));
+            if (res.success) {
+                bootstrap.Modal.getInstance(document.getElementById('editPlaceResultModal')).hide();
+                renderPlaceResultList();
+            } else {
+                alert(res.error || '保存失败');
+            }
+        };
+    });
+    </script>
+    <!-- 编辑投注模态框 -->
+    <div class="modal fade" id="editBetModal" tabindex="-1" aria-labelledby="editBetModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editBetModalLabel">编辑投注记录</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editBetForm">
+              <div class="mb-3">
+                <label class="form-label">关注点</label>
+                <select class="form-select" id="editBetPlaceId">
+                  <option value="">请选择关注点</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">期数</label>
+                <input type="text" class="form-control" id="editBetQishu">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">投注金额</label>
+                <input type="number" class="form-control" id="editBetAmount" min="0" step="0.01">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">赢取金额</label>
+                <input type="number" class="form-control" id="editWinAmount" min="0" step="0.01">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">对错</label>
+                <div id="editBetIsCorrectBtns" class="btn-group btn-group-sm w-100" role="group" aria-label="对错">
+                    <button type="button" class="btn btn-outline-secondary" data-correct="">未判断</button>
+                    <button type="button" class="btn btn-outline-success" data-correct="1">正确</button>
+                    <button type="button" class="btn btn-outline-danger" data-correct="0">错误</button>
+                </div>
+                <input type="hidden" id="editBetIsCorrect" value="">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-primary" id="saveEditBetBtn">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 在body底部引入jQuery和select2脚本（本地） -->
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/select2.min.js') }}"></script>
 </body>
 </html> 
