@@ -98,13 +98,13 @@
             box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
         }
         
-        /* 绿色球 - 5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49 */
+        /* 绿色球 - 3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48 */
         .lottery-number.green {
             background: linear-gradient(135deg, #2ed573,rgb(24, 228, 24));
             box-shadow: 0 2px 8px rgba(96, 243, 11, 0.91);
         }
         
-        /* 暗蓝色球 - 3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48 */
+        /* 暗蓝色球 - 5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49 */
         .lottery-number.blue {
             background: linear-gradient(135deg, #3742fa, #2f3542);
             box-shadow: 0 2px 8px rgba(55, 66, 250, 0.3);
@@ -323,6 +323,8 @@
             <div class="header">
                 <h1><i class="fas fa-chart-line"></i> 彩票开奖数据分析系统</h1>
                 <p class="text-muted">专业的彩票数据分析和统计平台</p>
+                <!-- 新增关注点登记按钮 -->
+                <button class="btn btn-warning mt-3" id="gotoFocusBtn"><i class="fas fa-star"></i> 关注点登记</button>
             </div>
 
             <!-- 统计卡片 -->
@@ -381,13 +383,8 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="plus20-tab" data-bs-toggle="tab" data-bs-target="#plus20" type="button" role="tab">
+                    <button class="nav-link " id="plus20-tab" data-bs-toggle="tab" data-bs-target="#plus20" type="button" role="tab">
                         <i class="fas fa-th-list"></i> +1~+20区间分析
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
-                        <i class="fas fa-table"></i> 开奖数据
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -395,6 +392,12 @@
                         <i class="fas fa-th-list"></i> -1~-20区间分析
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="data-tab" data-bs-toggle="tab" data-bs-target="#data" type="button" role="tab">
+                        <i class="fas fa-table"></i> 开奖数据
+                    </button>
+                </li>
+                <!-- 移除关注点登记Tab入口 -->
             </ul>
 
             <!-- 标签内容 -->
@@ -536,8 +539,6 @@
                     <div class="chart-container">
                         <h4><i class="fas fa-th-list"></i> 每个码+1~+20区间命中/遗漏分析</h4>
                         <div class="mb-3">
-                            <label class="form-label me-2">区间</label>
-                            <span id="plus20-range-btns" class="me-3"></span>
                             <label class="form-label me-2">年份</label>
                             <span id="plus20-year-btns" class="me-3"></span>
                             <label for="plus20-threshold" class="form-label">高亮阀值</label>
@@ -545,6 +546,21 @@
                             <button class="btn btn-primary ms-2" onclick="loadPlus20Intervals()"><i class="fas fa-sync"></i> 刷新分析</button>
                         </div>
                         <div id="plus20Table"></div>
+                    </div>
+                </div>
+
+                <!-- -1~-20区间分析 -->
+                <div class="tab-pane fade" id="minus20" role="tabpanel">
+                    <div class="chart-container">
+                        <h4><i class="fas fa-th-list"></i> 每个码-1~-20区间命中/遗漏分析</h4>
+                        <div class="mb-3">
+                            <label class="form-label me-2">年份</label>
+                            <span id="minus20-year-btns" class="me-3"></span>
+                            <label class="form-label me-2">高亮阀值</label>
+                            <input type="number" class="form-control" id="minus20-threshold" value="10" min="1" max="50" style="width:120px;display:inline-block;">
+                            <button class="btn btn-primary ms-2" onclick="loadMinus20Intervals()"><i class="fas fa-sync"></i> 刷新分析</button>
+                        </div>
+                        <div id="minus20Table"></div>
                     </div>
                 </div>
 
@@ -582,21 +598,6 @@
                         <div id="dataTable"></div>
                     </div>
                 </div>
-
-                <!-- -1~-20区间分析 -->
-                <div class="tab-pane fade" id="minus20" role="tabpanel">
-                    <div class="chart-container">
-                        <h4><i class="fas fa-th-list"></i> 每个码-1~-20区间命中/遗漏分析</h4>
-                        <div class="mb-3">
-                            <label class="form-label me-2">年份</label>
-                            <span id="minus20-year-btns" class="me-3"></span>
-                            <label for="minus20-threshold" class="form-label">高亮阀值</label>
-                            <input type="number" class="form-control" id="minus20-threshold" value="10" min="1" max="50" style="width:120px;display:inline-block;">
-                            <button class="btn btn-primary ms-2" onclick="loadMinus20Intervals()"><i class="fas fa-sync"></i> 刷新分析</button>
-                        </div>
-                        <div id="minus20Table"></div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -606,24 +607,24 @@
         // 全局变量
         let charts = {};
         let currentData = {};
+        // 新增：全局变量保存最新开奖数据
+        let latestLotteryInfo = null;
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
-            loadStatistics(); // ← 确保首页会请求统计数据
-            // ...原有的初始化代码...
-            var dataTab = document.getElementById('data-tab');
-            if (dataTab) {
-                var tab = new bootstrap.Tab(dataTab);
-                tab.show();
+            loadStatistics();
+            loadData(); // 默认加载开奖数据
+            // 页面加载时先获取最新开奖数据
+            (async function() {
+                await fetchLatestLotteryInfo();
+            })();
+            // 新增：关注点登记按钮跳转
+            const gotoFocusBtn = document.getElementById('gotoFocusBtn');
+            if (gotoFocusBtn) {
+                gotoFocusBtn.addEventListener('click', function() {
+                    window.location.href = '/focus';
+                });
             }
-            fillTrendYearOptions();
-            loadSeventhTensAnalysis();
-            fillCombYearOptions();
-            fillSixpmYearOptions();
-            fillSixpmNOptions();
-            fillPlus20YearOptions();
-            fillPlus20RangeOptions();
-            loadData();
         });
 
         // 加载统计数据
@@ -742,10 +743,12 @@
 
         // 获取号码的颜色类
         function getNumberColorClass(num) {
+            // 红色球
             const redNumbers = [1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46];
+            // 蓝色球
             const blueNumbers = [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48];
+            // 绿色球
             const greenNumbers = [5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49];
-            
             if (redNumbers.includes(num)) {
                 return 'red';
             } else if (blueNumbers.includes(num)) {
@@ -753,7 +756,7 @@
             } else if (greenNumbers.includes(num)) {
                 return 'green';
             } else {
-                return ''; // 默认颜色
+                return '';
             }
         }
 
@@ -809,8 +812,8 @@
             html += '<div class="mt-3">';
             html += '<div class="row text-center">';
             html += '<div class="col-md-4"><span class="lottery-number red" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">1</span> 鲜红色球</div>';
-            html += '<div class="col-md-4"><span class="lottery-number green" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">3</span> 绿色球</div>';
-            html += '<div class="col-md-4"><span class="lottery-number blue" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">5</span> 暗蓝色球</div>';
+            html += '<div class="col-md-4"><span class="lottery-number green" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">5</span> 绿色球</div>';
+            html += '<div class="col-md-4"><span class="lottery-number blue" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">3</span> 暗蓝色球</div>';
             html += '</div>';
             html += '</div>';
             
@@ -842,11 +845,11 @@
                     case '#plus20':
                         loadPlus20Intervals();
                         break;
-                    case '#data':
-                        loadData();
-                        break;
                     case '#minus20':
                         loadMinus20Intervals();
+                        break;
+                    case '#data':
+                        loadData();
                         break;
                 }
             });
@@ -1602,40 +1605,81 @@
         let plus20LastData = [];
         let plus20LastMaxMissArr = [];
         let plus20LastCurrentMissArr = [];
-        function renderPlus20Table(page, data, maxMissArr, currentMissArr, latestInfo) {
-            // 重新计算最大遗漏（基于当前筛选数据）
-            let dynamicMaxMissArr = [0,0,0,0,0,0,0];
-            for (let i = 0; i < 7; i++) {
-                let arr = data.map(row => row.intervals[i]?.miss_streak || 0);
-                dynamicMaxMissArr[i] = Math.max(...arr, 0);
+        // 新增：异步获取最新开奖数据
+        async function fetchLatestLotteryInfo() {
+            try {
+                const resp = await fetch('/api/latest-lottery');
+                const result = await resp.json();
+                if (result.success && result.data) {
+                    latestLotteryInfo = result.data;
+                } else {
+                    latestLotteryInfo = null;
+                }
+            } catch {
+                latestLotteryInfo = null;
             }
-            // 最新一期区间预算展示（以API返回的latest_info为准）
-            let latestHtml = '';
-            if (latestInfo) {
-                let maxQishu = parseInt(latestInfo.qishu);
-                let showQishu = maxQishu.toString();
-                let nextQishu = (maxQishu + 1).toString();
-                latestHtml += `<div class='mb-2'><strong>最新一期（${showQishu}）号码及区间，预测下一期期号：${nextQishu}</strong><div class='d-flex flex-wrap align-items-center'>`;
-                latestInfo.numbers.forEach((num, idx) => {
-                    // 计算区间
-                    const start = plus20SelectedRange.start;
-                    const end = plus20SelectedRange.end;
-                    const rng = [];
-                    for(let j=start;j<=end;j++) {
-                        rng.push((num + j - 1) % 49 + 1);
-                    }
-                    const rng_min = rng[0];
-                    const rng_max = rng[rng.length-1];
-                    latestHtml += `<div class='me-3 mb-1'><span class='lottery-number ${getNumberColorClass(num)}'>${num}</span><div style='font-size:12px;'>区间:${rng_min}~${rng_max}</div></div>`;
-                });
-                latestHtml += `</div></div>`;
+        }
+
+        // 修改renderPlus20Table，最上方展示latestLotteryInfo
+        function renderPlus20Table(page, data, maxMissArr, currentMissArr) {
+            // 获取区间定义，优先用后端 interval_defs
+            let intervalDefs = window.plus20IntervalDefs || [];
+            if ((!intervalDefs.length) && data && data.length > 0 && data[0].intervals && data[0].intervals[0].intervals) {
+                intervalDefs = data[0].intervals[0].intervals.map((it, idx) => it.range);
             }
+            if (!intervalDefs.length) {
+                intervalDefs = [[1,20],[5,24],[10,29],[15,34],[20,39],[25,44]];
+            }
+            // 统计区块严格用maxMissArr/currentMissArr
             let statHtml = '<div class="row mb-2">';
             for (let i = 0; i < 7; i++) {
-                statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:90px;'><div class='fw-bold' style='font-size:1.1rem;'>号码${i+1}</div><div>最高遗漏: <span class='text-danger fw-bold'>${dynamicMaxMissArr[i]||0}</span></div><div>当前遗漏: <span class='text-primary fw-bold'>${currentMissArr[i]||0}</span></div></div></div>`;
+                statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:150px;'><div class='fw-bold' style='font-size:1.1rem;'>号码${i+1}</div>`;
+                let is2D = Array.isArray(intervalDefs[0][0]);
+                for (let k = 0; k < (is2D ? intervalDefs[i].length : intervalDefs.length); k++) {
+                    let range = is2D ? intervalDefs[i][k] : intervalDefs[k];
+                    statHtml += `<div style='font-size:12px;'>区间${range[0]}~${range[1]} `;
+                    statHtml += `最高遗漏: <span class='text-danger fw-bold'>${(maxMissArr && maxMissArr[i] && typeof maxMissArr[i][k] !== 'undefined') ? maxMissArr[i][k] : 0}</span> 当前遗漏: <span class='text-primary fw-bold'>${(currentMissArr && currentMissArr[i] && typeof currentMissArr[i][k] !== 'undefined') ? currentMissArr[i][k] : 0}</span></div>`;
+                }
+                statHtml += `</div></div>`;
             }
             statHtml += '</div>';
-            let html = latestHtml + statHtml;
+
+            
+
+            // 展示最新开奖（通过接口获取）
+            if (latestLotteryInfo && latestLotteryInfo.numbers && latestLotteryInfo.numbers.length === 7) {
+                statHtml += `<div class='mb-2'><strong>期号 ${latestLotteryInfo.qishu}</strong> 开奖号码：`;
+                latestLotteryInfo.numbers.forEach(num => {
+                    statHtml += `<span class='lottery-number' style='width:28px;height:28px;line-height:28px;font-size:16px;margin:0 2px;'>${num}</span>`;
+                });
+                statHtml += `</div>`;
+                // 下方"最新一期"也用latestLotteryInfo
+                let nextQishu = '';
+                if (latestLotteryInfo.qishu && !isNaN(Number(latestLotteryInfo.qishu))) {
+                    nextQishu = (Number(latestLotteryInfo.qishu) + 1).toString();
+                }
+                statHtml += `<div class='mb-2'><strong>最新一期：</strong>期号 ${nextQishu}`;
+                statHtml += `，开奖时间 ${latestLotteryInfo.draw_time}`;
+                statHtml += `，<strong>第7码：</strong><span class='lottery-number'>未知</span>`;
+                statHtml += '</div>';
+                // 推荐区间范围
+                if (window.plus20IntervalDefs && Array.isArray(window.plus20IntervalDefs) && window.plus20IntervalDefs.length > 0) {
+                    statHtml += `<div class='mb-2'><strong>推荐区间范围：</strong></div><div class='row mb-2'>`;
+                    latestLotteryInfo.numbers.forEach((num, i) => {
+                        statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:170px;'><div class='fw-bold'>号码${i+1}区间</div>`;
+                        window.plus20IntervalDefs.forEach((range, k) => {
+                            let start = range[0], end = range[1];
+                            let realStart = (num + start - 1) % 49 + 1;
+                            let realEnd = (num + end - 1) % 49 + 1;
+                            statHtml += `<div style='font-size:12px;'>区间${start}~${end}: <span class='text-primary'>${realStart}~${realEnd}</span></div>`;
+                        });
+                        statHtml += `</div></div>`;
+                    });
+                    statHtml += `</div>`;
+                }
+            }
+
+            let html = statHtml;
             html += '<div class="table-responsive" style="max-height:600px;overflow:auto;">';
             html += '<table class="table table-bordered table-sm table-hover">';
             html += '<thead><tr><th>期数</th><th>开奖时间</th>';
@@ -1648,15 +1692,15 @@
                 html += `<tr><td>${row.qishu}</td><td>${row.draw_time}</td>`;
                 row.intervals.forEach((item, i) => {
                     let colorClass = getNumberColorClass(item.number);
-                    let hitText = item.hit ? '<span style="color:green;">命中</span>' : '<span style="color:red;">遗漏</span>';
-                    let highlightTd = !item.hit && item.miss_streak >= plus20Threshold ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
-                    let missText = !item.hit && item.miss_streak > 0 ? `连续${item.miss_streak}期未命中` : '';
-                    html += `<td style='min-width:110px;${highlightTd}'>
-                        <span class="lottery-number ${colorClass}">${item.number}</span>
-                        <div style='font-size:12px;'>区间:${item.range[0]}~${item.range[1]}</div>
-                        <div style='font-size:12px;'>${hitText}</div>
-                        <div style='font-size:12px;'>${missText}</div>
-                    </td>`;
+                    html += `<td style='min-width:160px;'>`;
+                    html += `<span class="lottery-number ${colorClass}">${item.number}</span>`;
+                    item.intervals.forEach((interval, k) => {
+                        let hitText = interval.hit ? '<span style="color:green;">命中</span>' : '<span style="color:red;">遗漏</span>';
+                        let highlightTd = !interval.hit && interval.miss_streak >= plus20Threshold ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
+                        let missText = !interval.hit && interval.miss_streak > 0 ? `连续${interval.miss_streak}期未命中` : '';
+                        html += `<div style='font-size:12px;${highlightTd}'>区间${interval.range[0]}~${interval.range[1]}: ${hitText} ${missText}</div>`;
+                    });
+                    html += `</td>`;
                 });
                 html += `<td><span class='lottery-number ${getNumberColorClass(row.next_seventh)}'>${row.next_seventh ?? '-'}</span></td></tr>`;
             }
@@ -1673,7 +1717,7 @@
             plus20CurrentPage += delta;
             if (plus20CurrentPage < 1) plus20CurrentPage = 1;
             if (plus20CurrentPage > Math.ceil(plus20LastData.length/plus20PageSize)) plus20CurrentPage = Math.ceil(plus20LastData.length/plus20PageSize);
-            renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr, plus20LastData[0]?.latest_info || null);
+            renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr);
         }
         let plus20Threshold = 10;
         async function loadPlus20Intervals() {
@@ -1692,21 +1736,12 @@
                     data = data.filter(row => (row.qishu||'').toString().startsWith(plus20SelectedYear));
                 }
                 data.reverse();
-                // 用API返回的latest_info
-                let latestInfo = result.latest_info || null;
-                // 统计当前遗漏（每个号码位的当前miss_streak）
-                let currentMissArr = [0,0,0,0,0,0,0];
-                if (data.length > 0) {
-                    let last = data[data.length-1];
-                    last.intervals.forEach((item, idx) => {
-                        currentMissArr[idx] = item.miss_streak;
-                    });
-                }
                 plus20LastData = data;
                 plus20LastMaxMissArr = result.max_miss || [];
-                plus20LastCurrentMissArr = currentMissArr;
+                plus20LastCurrentMissArr = result.current_miss || [];
+                window.plus20IntervalDefs = result.interval_defs || [];
                 plus20CurrentPage = 1;
-                renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr, latestInfo);
+                renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr);
             } catch (e) {
                 document.getElementById('plus20Table').innerHTML = '<div class="error">加载失败</div>';
             }
@@ -1719,33 +1754,6 @@
                     loadPlus20Intervals();
                 }
             });
-        });
-
-        // 区间选择
-        let plus20RangeList = [
-            {label: '+1~+20', start: 1, end: 20},
-            {label: '+5~+25', start: 5, end: 25},
-            {label: '+10~+30', start: 10, end: 30},
-            {label: '+15~+35', start: 15, end: 35},
-            {label: '+20~+40', start: 20, end: 40},
-            {label: '+25~+45', start: 25, end: 45}
-        ];
-        let plus20SelectedRange = plus20RangeList[0];
-        function fillPlus20RangeOptions() {
-            const btns = plus20RangeList.map((r,i) => `<button type="button" class="btn btn-outline-success btn-sm me-1" data-range="${i}">${r.label}</button>`);
-            document.getElementById('plus20-range-btns').innerHTML = btns.join('');
-            document.querySelectorAll('#plus20-range-btns button').forEach(btn => {
-                btn.onclick = function() {
-                    plus20SelectedRange = plus20RangeList[parseInt(this.getAttribute('data-range'))];
-                    document.querySelectorAll('#plus20-range-btns button').forEach(b=>b.classList.remove('active'));
-                    this.classList.add('active');
-                    loadPlus20Intervals();
-                };
-            });
-            document.querySelector('#plus20-range-btns button[data-range="0"]').classList.add('active');
-        }
-        document.addEventListener('DOMContentLoaded', function() {
-            fillPlus20RangeOptions();
         });
 
         // -1~-20区间分析
@@ -1782,75 +1790,88 @@
         document.addEventListener('DOMContentLoaded', function() {
             fillMinus20YearOptions();
         });
+
         let minus20CurrentPage = 1;
         const minus20PageSize = 50;
         let minus20LastData = [];
         let minus20LastMaxMissArr = [];
         let minus20LastCurrentMissArr = [];
-        function renderMinus20Table(page, data, maxMissArr, currentMissArr, latestInfo) {
-            // 重新计算最大遗漏（基于当前筛选数据）
-            let dynamicMaxMissArr = [0,0,0,0,0,0,0];
-            let minus20CurrentMissArr = [0,0,0,0,0,0,0];
-            // 先遍历所有data，找到最大期数那一行
-            let maxQishu = null;
-            let maxQishuRow = null;
-            for (let i = 0; i < data.length; i++) {
-                const row = data[i];
-                if(row.next_seventh === undefined || row.next_seventh === null) continue;
-                if (!maxQishu || row.qishu > maxQishu) {
-                    maxQishu = row.qishu;
-                    maxQishuRow = row;
+        // 新增：异步获取最新开奖数据
+        async function fetchLatestLotteryInfo() {
+            try {
+                const resp = await fetch('/api/latest-lottery');
+                const result = await resp.json();
+                if (result.success && result.data) {
+                    latestLotteryInfo = result.data;
+                } else {
+                    latestLotteryInfo = null;
+                }
+            } catch {
+                latestLotteryInfo = null;
+            }
+        }
+
+        // 修改renderMinus20Table，最上方展示latestLotteryInfo
+        function renderMinus20Table(page, data, maxMissArr, currentMissArr) {
+            // 获取区间定义，优先用后端 interval_defs
+            let intervalDefs = window.minus20IntervalDefs || [];
+            if ((!intervalDefs.length) && data && data.length > 0 && data[0].intervals && data[0].intervals[0].intervals) {
+                intervalDefs = data[0].intervals[0].intervals.map((it, idx) => it.range);
+            }
+            if (!intervalDefs.length) {
+                intervalDefs = [[-20,-1],[-24,-5],[-29,-10],[-34,-15],[-39,-20],[-44,-25]];
+            }
+            // 统计区块严格用maxMissArr/currentMissArr
+            let statHtml = '<div class="row mb-2">';
+            for (let i = 0; i < 7; i++) {
+                statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:150px;'><div class='fw-bold' style='font-size:1.1rem;'>号码${i+1}</div>`;
+                let is2D = Array.isArray(intervalDefs[0][0]);
+                for (let k = 0; k < (is2D ? intervalDefs[i].length : intervalDefs.length); k++) {
+                    let range = is2D ? intervalDefs[i][k] : intervalDefs[k];
+                    statHtml += `<div style='font-size:12px;'>区间${range[0]}~${range[1]} `;
+                    statHtml += `最高遗漏: <span class='text-danger fw-bold'>${(maxMissArr && maxMissArr[i] && typeof maxMissArr[i][k] !== 'undefined') ? maxMissArr[i][k] : 0}</span> 当前遗漏: <span class='text-primary fw-bold'>${(currentMissArr && currentMissArr[i] && typeof currentMissArr[i][k] !== 'undefined') ? currentMissArr[i][k] : 0}</span></div>`;
+                }
+                statHtml += `</div></div>`;
+            }
+            statHtml += '</div>';
+
+            
+
+            // 展示最新开奖（通过接口获取）
+            if (latestLotteryInfo && latestLotteryInfo.numbers && latestLotteryInfo.numbers.length === 7) {
+                statHtml += `<div class='mb-2'><strong>期号 ${latestLotteryInfo.qishu}</strong> 开奖号码：`;
+                latestLotteryInfo.numbers.forEach(num => {
+                    statHtml += `<span class='lottery-number' style='width:28px;height:28px;line-height:28px;font-size:16px;margin:0 2px;'>${num}</span>`;
+                });
+                statHtml += `</div>`;
+                // 下方"最新一期"也用latestLotteryInfo
+                let nextQishu = '';
+                if (latestLotteryInfo.qishu && !isNaN(Number(latestLotteryInfo.qishu))) {
+                    nextQishu = (Number(latestLotteryInfo.qishu) + 1).toString();
+                }
+                statHtml += `<div class='mb-2'><strong>最新一期：</strong>期号 ${nextQishu}`;
+                statHtml += `，开奖时间 ${latestLotteryInfo.draw_time}`;
+                statHtml += `，<strong>第7码：</strong><span class='lottery-number'>未知</span>`;
+                statHtml += '</div>';
+                // 推荐区间范围
+                if (window.minus20IntervalDefs && Array.isArray(window.minus20IntervalDefs) && window.minus20IntervalDefs.length > 0) {
+                    statHtml += `<div class='mb-2'><strong>推荐区间范围：</strong></div><div class='row mb-2'>`;
+                    latestLotteryInfo.numbers.forEach((num, i) => {
+                        statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:170px;'><div class='fw-bold'>号码${i+1}区间</div>`;
+                        window.minus20IntervalDefs.forEach((range, k) => {
+                            let start = range[0], end = range[1];
+                            // 用减法区间
+                            let realStart = (num - start + 49 - 1) % 49 + 1;
+                            let realEnd = (num - end + 49 - 1) % 49 + 1;
+                            statHtml += `<div style='font-size:12px;'>区间-${start}~- ${end}: <span class='text-primary'>${realStart}~${realEnd}</span></div>`;
+                        });
+                        statHtml += `</div></div>`;
+                    });
+                    statHtml += `</div>`;
                 }
             }
-            if (maxQishuRow) {
-                maxQishuRow.intervals.forEach((item, idx) => {
-                    minus20CurrentMissArr[idx] = item.hit ? 0 : item.miss_streak;
-                });
-            }
-            let html = '';
-            // 最新一期下期区间预告
-            if (latestInfo) {
-                let maxQishu = parseInt(latestInfo.qishu);
-                let showQishu = maxQishu.toString();
-                let nextQishu = (maxQishu + 1).toString();
-                html += `<div class='mb-2'><strong>最新一期（${showQishu}）号码及下期区间预告，预测下一期期号：${nextQishu}</strong><div class='d-flex flex-wrap align-items-center'>`;
-                latestInfo.numbers.forEach((num, idx) => {
-                    // 正确的-1~-20区间（环形递减，断点分段显示）
-                    const rng = [];
-                    let cur = num;
-                    for(let j=1;j<=20;j++) {
-                        cur = cur - 1;
-                        if (cur < 1) cur = 49;
-                        rng.push(cur);
-                    }
-                    // 查找断点
-                    let splitIdx = -1;
-                    for(let i=1;i<rng.length;i++) {
-                        if (rng[i-1] === 1 && rng[i] === 49) {
-                            splitIdx = i;
-                            break;
-                        }
-                    }
-                    let rangeStr = '';
-                    if (splitIdx > 0) {
-                        // 分两段
-                        const part1 = rng.slice(splitIdx);
-                        const part2 = rng.slice(0, splitIdx);
-                        rangeStr = `${part1[part1.length-1]}~${part1[0]},${part2[part2.length-1]}~${part2[0]}`;
-                    } else {
-                        rangeStr = `${rng[rng.length-1]}~${rng[0]}`;
-                    }
-                    html += `<div class='me-3 mb-1'><span class='lottery-number ${getNumberColorClass(num)}'>${num}</span><div style='font-size:12px;'>区间:${rangeStr}</div></div>`;
-                });
-                html += `</div></div>`;
-            }
-            // 统计卡片（每个号码历史最大遗漏和当前遗漏）
-            html += '<div class="row mb-2">';
-            for (let i = 0; i < 7; i++) {
-                html += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:110px;'><div class='fw-bold' style='font-size:1.1rem;'>号码${i+1}</div><div>历史最大遗漏: <span class='text-danger fw-bold'>${maxMissArr[i]||0}</span></div><div>当前遗漏: <span class='text-primary fw-bold'>${minus20CurrentMissArr[i]||0}</span></div></div></div>`;
-            }
-            html += '</div>';
-            // ... existing code ...
+
+            let html = statHtml;
             html += '<div class="table-responsive" style="max-height:600px;overflow:auto;">';
             html += '<table class="table table-bordered table-sm table-hover">';
             html += '<thead><tr><th>期数</th><th>开奖时间</th>';
@@ -1860,63 +1881,35 @@
             const end = Math.min(start+minus20PageSize, data.length);
             for(let idx=start; idx<end; idx++) {
                 const row = data[idx];
-                // 只显示有下一期第7码的行
-                if(row.next_seventh === undefined || row.next_seventh === null) continue;
-                if (!maxQishu || row.qishu > maxQishu) {
-                    maxQishu = row.qishu;
-                    maxQishuRow = row;
-                }
                 html += `<tr><td>${row.qishu}</td><td>${row.draw_time}</td>`;
                 row.intervals.forEach((item, i) => {
                     let colorClass = getNumberColorClass(item.number);
-                    let hitText = item.hit ? '<span style="color:green;">命中</span>' : '<span style="color:red;">遗漏</span>';
-                    let highlightTd = !item.hit && item.miss_streak >= minus20Threshold ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
-                    let missText = !item.hit && item.miss_streak > 0 ? `连续${item.miss_streak}期未命中` : '';
-                    // 区间分段断点逻辑
-                    const rng = [];
-                    let cur = item.number;
-                    for(let j=1;j<=20;j++) {
-                        cur = cur - 1;
-                        if (cur < 1) cur = 49;
-                        rng.push(cur);
-                    }
-                    let splitIdx = -1;
-                    for(let k=1;k<rng.length;k++) {
-                        if (rng[k-1] === 1 && rng[k] === 49) {
-                            splitIdx = k;
-                            break;
-                        }
-                    }
-                    let rangeStr = '';
-                    if (splitIdx > 0) {
-                        const part1 = rng.slice(splitIdx);
-                        const part2 = rng.slice(0, splitIdx);
-                        rangeStr = `${part1[part1.length-1]}~${part1[0]},${part2[part2.length-1]}~${part2[0]}`;
-                    } else {
-                        rangeStr = `${rng[rng.length-1]}~${rng[0]}`;
-                    }
-                    html += `<td style='min-width:110px;${highlightTd}'>
-                        <span class=\"lottery-number ${colorClass}\">${item.number}</span>
-                        <div style='font-size:12px;'>区间:${rangeStr}</div>
-                        <div style='font-size:12px;'>${hitText}</div>
-                        <div style='font-size:12px;'>${missText}</div>
-                    </td>`;
+                    html += `<td style='min-width:160px;'>`;
+                    html += `<span class="lottery-number ${colorClass}">${item.number}</span>`;
+                    item.intervals.forEach((interval, k) => {
+                        let hitText = interval.hit ? '<span style="color:green;">命中</span>' : '<span style="color:red;">遗漏</span>';
+                        let highlightTd = !interval.hit && interval.miss_streak >= minus20Threshold ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
+                        let missText = !interval.hit && interval.miss_streak > 0 ? `连续${interval.miss_streak}期未命中` : '';
+                        html += `<div style='font-size:12px;${highlightTd}'>区间${interval.range[0]}~${interval.range[1]}: ${hitText} ${missText}</div>`;
+                    });
+                    html += `</td>`;
                 });
                 html += `<td><span class='lottery-number ${getNumberColorClass(row.next_seventh)}'>${row.next_seventh ?? '-'}</span></td></tr>`;
             }
-            if (maxQishuRow) {
-                maxQishuRow.intervals.forEach((item, idx) => {
-                    minus20CurrentMissArr[idx] = item.hit ? 0 : item.miss_streak;
-                });
-            }
-            // ... existing code ...
+            html += '</tbody></table></div>';
+            // 分页按钮
+            html += `<div class='d-flex justify-content-between align-items-center my-2'>`;
+            html += `<button class='btn btn-sm btn-outline-primary' style='border-radius:6px;' ${page<=1?'disabled':''} onclick='minus20PageChange(-1)'><i class='fas fa-chevron-left'></i> 上一页</button>`;
+            html += `<span>第 ${page} / ${Math.ceil(data.length/minus20PageSize)} 页</span>`;
+            html += `<button class='btn btn-sm btn-outline-primary' style='border-radius:6px;' ${end>=data.length?'disabled':''} onclick='minus20PageChange(1)'>下一页 <i class='fas fa-chevron-right'></i></button>`;
+            html += `</div>`;
             document.getElementById('minus20Table').innerHTML = html;
         }
         function minus20PageChange(delta) {
             minus20CurrentPage += delta;
             if (minus20CurrentPage < 1) minus20CurrentPage = 1;
             if (minus20CurrentPage > Math.ceil(minus20LastData.length/minus20PageSize)) minus20CurrentPage = Math.ceil(minus20LastData.length/minus20PageSize);
-            renderMinus20Table(minus20CurrentPage, minus20LastData, minus20LastMaxMissArr, minus20LastCurrentMissArr, minus20LastData[0]?.latest_info || null);
+            renderMinus20Table(minus20CurrentPage, minus20LastData, minus20LastMaxMissArr, minus20LastCurrentMissArr);
         }
         let minus20Threshold = 10;
         async function loadMinus20Intervals() {
@@ -1935,21 +1928,12 @@
                     data = data.filter(row => (row.qishu||'').toString().startsWith(minus20SelectedYear));
                 }
                 data.reverse();
-                // 用API返回的latest_info
-                let latestInfo = result.latest_info || null;
-                // 统计当前遗漏（每个号码位的当前miss_streak）
-                let currentMissArr = [0,0,0,0,0,0,0];
-                if (data.length > 0) {
-                    let last = data[data.length-1];
-                    last.intervals.forEach((item, idx) => {
-                        currentMissArr[idx] = item.miss_streak;
-                    });
-                }
                 minus20LastData = data;
                 minus20LastMaxMissArr = result.max_miss || [];
-                minus20LastCurrentMissArr = currentMissArr;
+                minus20LastCurrentMissArr = result.current_miss || [];
+                window.minus20IntervalDefs = result.interval_defs || [];
                 minus20CurrentPage = 1;
-                renderMinus20Table(minus20CurrentPage, minus20LastData, minus20LastMaxMissArr, minus20LastCurrentMissArr, latestInfo);
+                renderMinus20Table(minus20CurrentPage, minus20LastData, minus20LastMaxMissArr, minus20LastCurrentMissArr);
             } catch (e) {
                 document.getElementById('minus20Table').innerHTML = '<div class="error">加载失败</div>';
             }
@@ -1963,6 +1947,54 @@
                 }
             });
         });
+
+        // 关注点登记功能
+        function getFocusList() {
+            return JSON.parse(localStorage.getItem('focusList') || '[]');
+        }
+        function setFocusList(list) {
+            localStorage.setItem('focusList', JSON.stringify(list));
+        }
+        function renderFocusList() {
+            const list = getFocusList();
+            let html = '';
+            if (!list.length) {
+                html = '<div class="alert alert-info">暂无关注点，请登记。</div>';
+            } else {
+                html = '<table class="table table-bordered table-sm table-hover"><thead><tr><th>号码</th><th>区间</th><th>投注金额</th><th>备注</th><th>分析</th><th>操作</th></tr></thead><tbody>';
+                list.forEach((item, idx) => {
+                    html += `<tr>`;
+                    html += `<td>${item.number}</td>`;
+                    html += `<td>${item.range}</td>`;
+                    html += `<td>${item.bet||''}</td>`;
+                    html += `<td>${item.remark||''}</td>`;
+                    html += `<td>${item.analysis||'-'}</td>`;
+                    html += `<td><button class='btn btn-danger btn-sm' onclick='deleteFocus(${idx})'>删除</button></td>`;
+                    html += `</tr>`;
+                });
+                html += '</tbody></table>';
+            }
+            document.getElementById('focusList').innerHTML = html;
+        }
+        function deleteFocus(idx) {
+            const list = getFocusList();
+            list.splice(idx, 1);
+            setFocusList(list);
+            renderFocusList();
+        }
+        document.getElementById('focusForm').onsubmit = function(e) {
+            e.preventDefault();
+            const number = parseInt(document.getElementById('focusNumber').value, 10);
+            const range = document.getElementById('focusRange').value;
+            const bet = document.getElementById('focusBet').value;
+            const remark = document.getElementById('focusRemark').value;
+            const list = getFocusList();
+            list.push({ number, range, bet, remark, analysis: '-' });
+            setFocusList(list);
+            renderFocusList();
+            this.reset();
+        };
+        document.addEventListener('DOMContentLoaded', renderFocusList);
     </script>
 </body>
 </html> 

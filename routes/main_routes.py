@@ -17,4 +17,9 @@ def get_status():
         'database_available': database_available,
         'demo_url': 'http://localhost:5001' if not database_available else None,
         'message': '数据库连接正常' if database_available else '数据库连接不可用，建议使用演示版本'
-    }) 
+    })
+
+@main_bp.route('/focus')
+def focus():
+    """关注点登记页面"""
+    return render_template('focus.html') 
