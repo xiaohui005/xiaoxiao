@@ -101,7 +101,7 @@ def get_recent_data():
 
 @data_bp.route('/plus20-intervals')
 def get_plus20_intervals():
-    """每个号码+1~+20区间命中/遗漏分析API"""
+    """每个号码多个区间命中/遗漏分析API"""
     if not get_database_status():
         return jsonify({'error': '数据库连接不可用'}), 503
     try:
@@ -109,11 +109,16 @@ def get_plus20_intervals():
         data = db_manager.get_lottery_data(limit=300)  # 可调整期数
         if data.empty:
             return jsonify({'error': '没有找到数据'}), 404
+        # 区间定义
+        interval_defs = [
+            (1, 20), (5, 24), (10, 29), (15, 34), (20, 39), (25, 44)
+        ]
         # 按qishu升序排列，便于下一期分析
         data = data.sort_values('qishu', ascending=True).reset_index(drop=True)
         records = []
-        max_miss = [0]*7
-        miss_streak = [0]*7
+        # 对每个号码位、每个区间都维护miss_streak和max_miss
+        miss_streak = [[0 for _ in interval_defs] for _ in range(7)]
+        max_miss = [[0 for _ in interval_defs] for _ in range(7)]
         n = len(data)
         for i in range(n-1):
             row = data.iloc[i]
@@ -127,33 +132,72 @@ def get_plus20_intervals():
             }
             for idx in range(7):
                 num = int(row[f'number{idx+1}'])
-                rng = [(num + j - 1) % 49 + 1 for j in range(1, 21)]
-                rng_min = rng[0]
-                rng_max = rng[-1]
-                hit = entry['next_seventh'] in rng
-                if hit:
-                    miss_streak[idx] = 0
-                else:
-                    miss_streak[idx] += 1
-                    max_miss[idx] = max(max_miss[idx], miss_streak[idx])
+                interval_results = []
+                for k, (start, end) in enumerate(interval_defs):
+                    rng = [(num + j - 1) % 49 + 1 for j in range(start, end+1)]
+                    rng_min = rng[0]
+                    rng_max = rng[-1]
+                    hit = entry['next_seventh'] in rng
+                    if hit:
+                        miss_streak[idx][k] = 0
+                    else:
+                        miss_streak[idx][k] += 1
+                        max_miss[idx][k] = max(max_miss[idx][k], miss_streak[idx][k])
+                    interval_results.append({
+                        'range': [rng_min, rng_max],
+                        'hit': hit,
+                        'miss_streak': miss_streak[idx][k],
+                        'max_miss': max_miss[idx][k]
+                    })
                 entry['intervals'].append({
                     'number': num,
-                    'range': [rng_min, rng_max],
-                    'hit': hit,
-                    'miss_streak': miss_streak[idx],
-                    'max_miss': max_miss[idx]
+                    'intervals': interval_results
                 })
             records.append(entry)
         # 计算当前遗漏（最大期数那一行的miss_streak）
-        current_miss = [0]*7
+        current_miss = [[0 for _ in interval_defs] for _ in range(7)]
         if records:
-            # 找到qishu最大的那一条记录
             max_record = max(records, key=lambda r: int(r['qishu']))
             last_intervals = max_record['intervals']
             for idx in range(7):
-                current_miss[idx] = last_intervals[idx]['miss_streak']
-        return jsonify({'success': True, 'data': records, 'max_miss': max_miss, 'current_miss': current_miss})
+                for k in range(len(interval_defs)):
+                    current_miss[idx][k] = last_intervals[idx]['intervals'][k]['miss_streak']
+        return jsonify({'success': True, 'data': records, 'max_miss': max_miss, 'current_miss': current_miss, 'interval_defs': interval_defs})
     except Exception as e:
         print(f"plus20-intervals API错误: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/latest-lottery')
+def get_latest_lottery():
+    """获取期号最大的最新一期开奖数据API"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        data = db_manager.get_lottery_data()
+        if data.empty:
+            return jsonify({'error': '没有找到数据'}), 404
+        # 找到qishu最大的那一行
+        latest_row = data.loc[data['qishu'].astype(int).idxmax()]
+        record = {
+            'id': int(latest_row['id']) if pd.notna(latest_row['id']) else None,
+            'qishu': str(latest_row['qishu']) if pd.notna(latest_row['qishu']) else None,
+            'draw_time': latest_row['draw_time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notna(latest_row['draw_time']) else None,
+            'numbers': [
+                int(latest_row['number1']) if pd.notna(latest_row['number1']) else 0,
+                int(latest_row['number2']) if pd.notna(latest_row['number2']) else 0,
+                int(latest_row['number3']) if pd.notna(latest_row['number3']) else 0,
+                int(latest_row['number4']) if pd.notna(latest_row['number4']) else 0,
+                int(latest_row['number5']) if pd.notna(latest_row['number5']) else 0,
+                int(latest_row['number6']) if pd.notna(latest_row['number6']) else 0,
+                int(latest_row['number7']) if pd.notna(latest_row['number7']) else 0
+            ],
+            'created_at': latest_row['created_at'].strftime('%Y-%m-%d %H:%M:%S') if pd.notna(latest_row['created_at']) else None,
+            'remark': str(latest_row['remark']) if pd.notna(latest_row['remark']) else None
+        }
+        return jsonify({'success': True, 'data': record})
+    except Exception as e:
+        print(f"最新开奖API错误: {str(e)}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500 

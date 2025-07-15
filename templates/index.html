@@ -381,7 +381,7 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="plus20-tab" data-bs-toggle="tab" data-bs-target="#plus20" type="button" role="tab">
+                    <button class="nav-link " id="plus20-tab" data-bs-toggle="tab" data-bs-target="#plus20" type="button" role="tab">
                         <i class="fas fa-th-list"></i> +1~+20区间分析
                     </button>
                 </li>
@@ -584,11 +584,17 @@
         // 全局变量
         let charts = {};
         let currentData = {};
+        // 新增：全局变量保存最新开奖数据
+        let latestLotteryInfo = null;
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
             loadStatistics();
             loadData(); // 默认加载开奖数据
+            // 页面加载时先获取最新开奖数据
+            (async function() {
+                await fetchLatestLotteryInfo();
+            })();
         });
 
         // 加载统计数据
@@ -1564,18 +1570,80 @@
         let plus20LastData = [];
         let plus20LastMaxMissArr = [];
         let plus20LastCurrentMissArr = [];
-        function renderPlus20Table(page, data, maxMissArr, currentMissArr) {
-            // 重新计算最大遗漏（基于当前筛选数据）
-            let dynamicMaxMissArr = [0,0,0,0,0,0,0];
-            for (let i = 0; i < 7; i++) {
-                let arr = data.map(row => row.intervals[i]?.miss_streak || 0);
-                dynamicMaxMissArr[i] = Math.max(...arr, 0);
+        // 新增：异步获取最新开奖数据
+        async function fetchLatestLotteryInfo() {
+            try {
+                const resp = await fetch('/api/latest-lottery');
+                const result = await resp.json();
+                if (result.success && result.data) {
+                    latestLotteryInfo = result.data;
+                } else {
+                    latestLotteryInfo = null;
+                }
+            } catch {
+                latestLotteryInfo = null;
             }
+        }
+
+        // 修改renderPlus20Table，最上方展示latestLotteryInfo
+        function renderPlus20Table(page, data, maxMissArr, currentMissArr) {
+            // 获取区间定义，优先用后端 interval_defs
+            let intervalDefs = window.plus20IntervalDefs || [];
+            if ((!intervalDefs.length) && data && data.length > 0 && data[0].intervals && data[0].intervals[0].intervals) {
+                intervalDefs = data[0].intervals[0].intervals.map((it, idx) => it.range);
+            }
+            if (!intervalDefs.length) {
+                intervalDefs = [[1,20],[5,24],[10,29],[15,34],[20,39],[25,44]];
+            }
+            // 统计区块严格用maxMissArr/currentMissArr
             let statHtml = '<div class="row mb-2">';
             for (let i = 0; i < 7; i++) {
-                statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:90px;'><div class='fw-bold' style='font-size:1.1rem;'>号码${i+1}</div><div>最高遗漏: <span class='text-danger fw-bold'>${dynamicMaxMissArr[i]||0}</span></div><div>当前遗漏: <span class='text-primary fw-bold'>${currentMissArr[i]||0}</span></div></div></div>`;
+                statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:150px;'><div class='fw-bold' style='font-size:1.1rem;'>号码${i+1}</div>`;
+                let is2D = Array.isArray(intervalDefs[0][0]);
+                for (let k = 0; k < (is2D ? intervalDefs[i].length : intervalDefs.length); k++) {
+                    let range = is2D ? intervalDefs[i][k] : intervalDefs[k];
+                    statHtml += `<div style='font-size:12px;'>区间${range[0]}~${range[1]} `;
+                    statHtml += `最高遗漏: <span class='text-danger fw-bold'>${(maxMissArr && maxMissArr[i] && typeof maxMissArr[i][k] !== 'undefined') ? maxMissArr[i][k] : 0}</span> 当前遗漏: <span class='text-primary fw-bold'>${(currentMissArr && currentMissArr[i] && typeof currentMissArr[i][k] !== 'undefined') ? currentMissArr[i][k] : 0}</span></div>`;
+                }
+                statHtml += `</div></div>`;
             }
             statHtml += '</div>';
+
+            
+
+            // 展示最新开奖（通过接口获取）
+            if (latestLotteryInfo && latestLotteryInfo.numbers && latestLotteryInfo.numbers.length === 7) {
+                statHtml += `<div class='mb-2'><strong>期号 ${latestLotteryInfo.qishu}</strong> 开奖号码：`;
+                latestLotteryInfo.numbers.forEach(num => {
+                    statHtml += `<span class='lottery-number' style='width:28px;height:28px;line-height:28px;font-size:16px;margin:0 2px;'>${num}</span>`;
+                });
+                statHtml += `</div>`;
+                // 下方"最新一期"也用latestLotteryInfo
+                let nextQishu = '';
+                if (latestLotteryInfo.qishu && !isNaN(Number(latestLotteryInfo.qishu))) {
+                    nextQishu = (Number(latestLotteryInfo.qishu) + 1).toString();
+                }
+                statHtml += `<div class='mb-2'><strong>最新一期：</strong>期号 ${nextQishu}`;
+                statHtml += `，开奖时间 ${latestLotteryInfo.draw_time}`;
+                statHtml += `，<strong>第7码：</strong><span class='lottery-number'>未知</span>`;
+                statHtml += '</div>';
+                // 推荐区间范围
+                if (window.plus20IntervalDefs && Array.isArray(window.plus20IntervalDefs) && window.plus20IntervalDefs.length > 0) {
+                    statHtml += `<div class='mb-2'><strong>推荐区间范围：</strong></div><div class='row mb-2'>`;
+                    latestLotteryInfo.numbers.forEach((num, i) => {
+                        statHtml += `<div class='col-auto'><div class='card p-2 text-center' style='min-width:170px;'><div class='fw-bold'>号码${i+1}区间</div>`;
+                        window.plus20IntervalDefs.forEach((range, k) => {
+                            let start = range[0], end = range[1];
+                            let realStart = (num + start - 1) % 49 + 1;
+                            let realEnd = (num + end - 1) % 49 + 1;
+                            statHtml += `<div style='font-size:12px;'>区间${start}~${end}: <span class='text-primary'>${realStart}~${realEnd}</span></div>`;
+                        });
+                        statHtml += `</div></div>`;
+                    });
+                    statHtml += `</div>`;
+                }
+            }
+
             let html = statHtml;
             html += '<div class="table-responsive" style="max-height:600px;overflow:auto;">';
             html += '<table class="table table-bordered table-sm table-hover">';
@@ -1589,15 +1657,15 @@
                 html += `<tr><td>${row.qishu}</td><td>${row.draw_time}</td>`;
                 row.intervals.forEach((item, i) => {
                     let colorClass = getNumberColorClass(item.number);
-                    let hitText = item.hit ? '<span style="color:green;">命中</span>' : '<span style="color:red;">遗漏</span>';
-                    let highlightTd = !item.hit && item.miss_streak >= plus20Threshold ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
-                    let missText = !item.hit && item.miss_streak > 0 ? `连续${item.miss_streak}期未命中` : '';
-                    html += `<td style='min-width:110px;${highlightTd}'>
-                        <span class="lottery-number ${colorClass}">${item.number}</span>
-                        <div style='font-size:12px;'>区间:${item.range[0]}~${item.range[1]}</div>
-                        <div style='font-size:12px;'>${hitText}</div>
-                        <div style='font-size:12px;'>${missText}</div>
-                    </td>`;
+                    html += `<td style='min-width:160px;'>`;
+                    html += `<span class="lottery-number ${colorClass}">${item.number}</span>`;
+                    item.intervals.forEach((interval, k) => {
+                        let hitText = interval.hit ? '<span style="color:green;">命中</span>' : '<span style="color:red;">遗漏</span>';
+                        let highlightTd = !interval.hit && interval.miss_streak >= plus20Threshold ? 'background:#d9534f;color:#fff;font-weight:bold;' : '';
+                        let missText = !interval.hit && interval.miss_streak > 0 ? `连续${interval.miss_streak}期未命中` : '';
+                        html += `<div style='font-size:12px;${highlightTd}'>区间${interval.range[0]}~${interval.range[1]}: ${hitText} ${missText}</div>`;
+                    });
+                    html += `</td>`;
                 });
                 html += `<td><span class='lottery-number ${getNumberColorClass(row.next_seventh)}'>${row.next_seventh ?? '-'}</span></td></tr>`;
             }
@@ -1633,21 +1701,10 @@
                     data = data.filter(row => (row.qishu||'').toString().startsWith(plus20SelectedYear));
                 }
                 data.reverse();
-                // 统计当前遗漏（每个号码位的当前miss_streak）
-                let currentMissArr = [0,0,0,0,0,0,0];
-                if (data.length > 0) {
-                    // 找到qishu最大那一行
-                    let maxQishu = Math.max(...data.map(row => parseInt(row.qishu)));
-                    let maxRow = data.find(row => parseInt(row.qishu) === maxQishu);
-                    if (maxRow) {
-                        maxRow.intervals.forEach((item, idx) => {
-                            currentMissArr[idx] = item.miss_streak;
-                        });
-                    }
-                }
                 plus20LastData = data;
                 plus20LastMaxMissArr = result.max_miss || [];
-                plus20LastCurrentMissArr = currentMissArr;
+                plus20LastCurrentMissArr = result.current_miss || [];
+                window.plus20IntervalDefs = result.interval_defs || [];
                 plus20CurrentPage = 1;
                 renderPlus20Table(plus20CurrentPage, plus20LastData, plus20LastMaxMissArr, plus20LastCurrentMissArr);
             } catch (e) {
