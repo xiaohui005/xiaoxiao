@@ -11,7 +11,7 @@ class AppConfig:
     
     # 服务器配置
     HOST = '0.0.0.0'
-    PORT = 5001
+    PORT = 5003
     
     # 数据库配置
     config_path = os.path.join(os.path.dirname(__file__), '..', 'db_config.json')
@@ -36,6 +36,24 @@ class AppConfig:
     # 分析配置
     ANALYSIS_DAYS = 30
     FREQUENCY_LIMIT = 1000
+    
+    # 组合分析报警阈值（当前值大于最大值-该阈值时触发报警）
+    COMBINATION_ALERT_THRESHOLD = 3  # 可根据需要修改
+    
+    # 十位组合分析报警阈值（当前值大于最大值-该阈值时触发报警）
+    TENS_ANALYSIS_ALERT_THRESHOLD = 3  # 可根据需要修改
+    
+    # 前6码±N推荐分析报警阈值（当前遗漏大于最大遗漏-该阈值时报警）
+    SIXPLUSMINUS_ALERT_THRESHOLD = 3  # 可根据需要修改
+    
+    # +1~+20区间分析报警阈值（当前遗漏大于最大遗漏-该阈值时报警）
+    PLUS20_ALERT_THRESHOLD = 3  # 可根据需要修改
+    
+    # -1~-20区间分析报警阈值（当前遗漏大于最大遗漏-该阈值时报警）
+    MINUS20_ALERT_THRESHOLD = 3  # 可根据需要修改
+    
+    # 关注点区间分析报警阈值（当前遗漏/连中大于最大遗漏/连中-该阈值时报警）
+    PLACE_ANALYSIS_ALERT_THRESHOLD = -13  # 可根据需要修改
     
     # 日志配置
     LOG_LEVEL = 'INFO'

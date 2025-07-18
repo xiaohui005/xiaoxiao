@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 import traceback
 from shared_config import get_database_status, get_db_manager
 from common.lottery_analyzer import LotteryAnalyzer
+from config.app_config import AppConfig
 
 analysis_bp = Blueprint('analysis', __name__)
 
@@ -92,6 +93,56 @@ def get_combinations():
         # 新增：支持target_col参数，默认7
         target_col = request.args.get('target_col', 7, type=int)
         custom_result = analyzer.get_custom_group_analysis(target_col=target_col)
+
+        # 统计组1和组2的最大遗漏、最大连中，以及最大期数（最新期数）对应的遗漏/连中
+        result = custom_result.get('result', {})
+        detail_rows = custom_result.get('detail_rows', [])
+        group_stats = {}
+        # 找到最大期数（最新期数）
+        max_qishu = ''
+        max_qishu_row = None
+        if detail_rows:
+            # 期数可能是字符串，找最大
+            max_qishu = max((r['qishu'] for r in detail_rows if r['qishu']), default='')
+            max_qishu_row = next((r for r in detail_rows if r['qishu'] == max_qishu), None)
+        for group, hit_key, miss_key in [
+            ('group1', 'g1_hit', 'g1_miss'),
+            ('group2', 'g2_hit', 'g2_miss')
+        ]:
+            miss_list = result.get(group, {}).get('miss', [])
+            hit_list = result.get(group, {}).get('hit', [])
+            max_miss = max(miss_list) if miss_list else 0
+            max_hit = max(hit_list) if hit_list else 0
+            # 最大期数那一期的遗漏/连中
+            current_miss = max_qishu_row[miss_key] if max_qishu_row else 0
+            current_hit = max_qishu_row[hit_key] if max_qishu_row else 0
+            current_miss_qishu = max_qishu_row['qishu'] if max_qishu_row else ''
+            current_hit_qishu = max_qishu_row['qishu'] if max_qishu_row else ''
+            current_miss_number = max_qishu_row['number'] if max_qishu_row else ''
+            current_hit_number = max_qishu_row['number'] if max_qishu_row else ''
+            group_stats[group] = {
+                'max_miss': max_miss,
+                'current_miss': current_miss,
+                'current_miss_qishu': current_miss_qishu,
+                'current_miss_number': current_miss_number,
+                'max_hit': max_hit,
+                'current_hit': current_hit,
+                'current_hit_qishu': current_hit_qishu,
+                'current_hit_number': current_hit_number
+            }
+        # 合并到返回结果
+        custom_result['group1_stats'] = group_stats['group1']
+        custom_result['group2_stats'] = group_stats['group2']
+
+        # 发送消息逻辑
+        db_manager = get_db_manager()
+        threshold = AppConfig.COMBINATION_ALERT_THRESHOLD
+        for group, label in [('group1', '1'), ('group2', '2')]:
+            stats = group_stats[group]
+            if stats['current_miss'] > stats['max_miss'] - threshold:
+                db_manager.add_bot_send_queue(f"组合分析结果{label}组 大于最大的遗漏期数")
+            if stats['current_hit'] > stats['max_hit'] - threshold:
+                db_manager.add_bot_send_queue(f"组合分析结果{label}组 大于最大的连中期数")
         return jsonify({
             'success': True,
             'data': custom_result
@@ -270,6 +321,13 @@ def get_seventh_digit_tens_analysis():
             data = data[data['draw_time'].astype(str).str.startswith(str(year))]
         analyzer = LotteryAnalyzer(data)
         group_stats = analyzer.get_seventh_digit_tens_analysis(position=position)
+        # 检查所有组合的current_miss和max_miss
+        threshold = AppConfig.TENS_ANALYSIS_ALERT_THRESHOLD
+        for comb, stats in group_stats.items():
+            current_miss = stats.get('current_miss', 0)
+            max_miss = stats.get('max_miss', 0)
+            if current_miss > max_miss - threshold:
+                db_manager.add_bot_send_queue(f"第N码十位组合遗漏分析第{position}码的组合{comb}大于最大的遗漏期数")
         return jsonify({'success': True, 'data': group_stats})
     except Exception as e:
         print(f"第N码十位分析API错误: {str(e)}")
@@ -297,6 +355,12 @@ def get_sixplusminus_analysis():
             data = data[data['draw_time'].astype(str).str.startswith(str(year))]
         analyzer = LotteryAnalyzer(data)
         result = analyzer.get_sixplusminus_analysis(threshold=threshold, plusminus=plusminus)
+        # 报警逻辑
+        alert_threshold = getattr(AppConfig, 'SIXPLUSMINUS_ALERT_THRESHOLD', 3)
+        current_miss = result.get('current_miss', 0)
+        max_miss = result.get('max_miss', 0)
+        if current_miss > max_miss - alert_threshold:
+            db_manager.add_bot_send_queue(f"前6码±{plusminus}推荐分析 当前遗漏大于最大遗漏期数")
         return jsonify({'success': True, 'data': result})
     except Exception as e:
         print(f"前6码±N推荐API错误: {str(e)}")

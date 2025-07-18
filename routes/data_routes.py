@@ -4,6 +4,7 @@ import traceback
 import pandas as pd
 from shared_config import get_database_status, get_db_manager
 from common.lottery_analyzer import LotteryAnalyzer
+from config.app_config import AppConfig
 
 data_bp = Blueprint('data', __name__)
 
@@ -162,6 +163,12 @@ def get_plus20_intervals():
             for idx in range(7):
                 for k in range(len(interval_defs)):
                     current_miss[idx][k] = last_intervals[idx]['intervals'][k]['miss_streak']
+        alert_threshold = getattr(AppConfig, 'PLUS20_ALERT_THRESHOLD', 3)
+        for i in range(7):
+            for j in range(len(interval_defs)):
+                if current_miss[i][j] > max_miss[i][j] - alert_threshold:
+                    db_manager.add_bot_send_queue(
+                        f"+1~+20区间分析结果 号码{i+1} 区间{interval_defs[j][0]}~{interval_defs[j][1]} 大于最大的遗漏期数")
         return jsonify({'success': True, 'data': records, 'max_miss': max_miss, 'current_miss': current_miss, 'interval_defs': interval_defs})
     except Exception as e:
         print(f"plus20-intervals API错误: {str(e)}")
@@ -262,6 +269,12 @@ def get_minus20_intervals():
             for idx in range(7):
                 for k in range(len(interval_defs)):
                     current_miss[idx][k] = last_intervals[idx]['intervals'][k]['miss_streak']
+        alert_threshold = getattr(AppConfig, 'MINUS20_ALERT_THRESHOLD', 3)
+        for i in range(7):
+            for j in range(len(interval_defs)):
+                if current_miss[i][j] > max_miss[i][j] - alert_threshold:
+                    db_manager.add_bot_send_queue(
+                        f"-1~-20区间分析结果 号码{i+1} 区间{interval_defs[j][0]}~{interval_defs[j][1]} 大于最大的遗漏期数")
         return jsonify({'success': True, 'data': records, 'max_miss': max_miss, 'current_miss': current_miss, 'interval_defs': interval_defs})
     except Exception as e:
         print(f"minus20-intervals API错误: {str(e)}")
@@ -547,25 +560,41 @@ def api_place_analysis():
             streak_dist[str(current_streak)] = streak_dist.get(str(current_streak), 0) + 1
             max_streak = max(max_streak, current_streak)
         hit_rate = correct / (correct + wrong) if (correct + wrong) > 0 else 0
+        # 新增：历史最大遗漏、最大连中、当前遗漏、当前连中
+        result_data = {
+            'place_id': place_id,
+            'total': total,
+            'correct': correct,
+            'wrong': wrong,
+            'unjudged': unjudged,
+            'hit_rate': hit_rate,
+            'current_miss': current_miss,
+            'max_miss': max_miss,
+            'current_streak': current_streak,
+            'max_streak': max_streak,
+            'miss_spans': miss_spans,
+            'miss_distribution': miss_dist,
+            'streak_spans': streak_spans,
+            'streak_distribution': streak_dist,
+            'recent_results': recent_results[-30:] # 最近30期
+        }
+        alert_threshold = getattr(AppConfig, 'PLACE_ANALYSIS_ALERT_THRESHOLD', -13)
+        # 获取关注点名称
+        place_name = ''
+        try:
+            place = db_manager.get_place_by_id(place_id)
+            if place and 'name' in place:
+                place_name = place['name']
+        except Exception:
+            pass
+        # 报警逻辑
+        if current_miss > max_miss - alert_threshold:
+            db_manager.add_bot_send_queue(f"关注点【{place_name}】区间分析结果 当前遗漏大于最大遗漏期数")
+        if current_streak > max_streak - alert_threshold:
+            db_manager.add_bot_send_queue(f"关注点【{place_name}】区间分析结果 当前连中大于最大连中期数")
         return jsonify({
             'success': True,
-            'data': {
-                'place_id': place_id,
-                'total': total,
-                'correct': correct,
-                'wrong': wrong,
-                'unjudged': unjudged,
-                'hit_rate': hit_rate,
-                'current_miss': current_miss,
-                'max_miss': max_miss,
-                'miss_spans': miss_spans,
-                'miss_distribution': miss_dist,
-                'current_streak': current_streak,
-                'max_streak': max_streak,
-                'streak_spans': streak_spans,
-                'streak_distribution': streak_dist,
-                'recent_results': recent_results[-30:] # 最近30期
-            }
+            'data': result_data
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500 

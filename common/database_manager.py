@@ -610,3 +610,34 @@ class DatabaseManager:
             print(f"投注点报表统计错误: {e}")
             traceback.print_exc()
             return None 
+
+    def add_bot_send_queue(self, content):
+        """向bot_send_queue表插入一条待发送消息（同一天同内容只插入一次）"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    # 检查当天是否已有相同内容
+                    cursor.execute(
+                        """
+                        SELECT id FROM bot_send_queue 
+                        WHERE content = %s AND DATE(create_time) = CURDATE()
+                        """,
+                        (content,)
+                    )
+                    existing = cursor.fetchone()
+                    if existing:
+                        print(f"今日已存在相同内容，不再插入: {content}")
+                        return None
+                    cursor.execute(
+                        """
+                        INSERT INTO bot_send_queue (content, status, send_time, create_time, update_time)
+                        VALUES (%s, 0, NULL, NOW(), NOW())
+                        """,
+                        (content,)
+                    )
+                    conn.commit()
+                    return cursor.lastrowid
+        except Exception as e:
+            print(f"插入bot_send_queue错误: {e}")
+            traceback.print_exc()
+            return None 
