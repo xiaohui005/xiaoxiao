@@ -839,6 +839,101 @@
             // 初始化生肖对照表，保证一进页面就有内容
             updateZodiacLegend(currentYear || 2025);
 
+            // 新增热门4码推荐统计Tab
+            let hot4TabNav = `<li class="nav-item" role="presentation"><button class="nav-link" id="tab-hot4" data-bs-toggle="tab" data-bs-target="#tabHot4Pane" type="button" role="tab">热门4码推荐统计</button></li>`;
+            document.querySelector('#mainTab').insertAdjacentHTML('beforeend', hot4TabNav);
+            let hot4TabContent = `<div class="tab-pane fade" id="tabHot4Pane" role="tabpanel">
+              <div class="main-container">
+                <div class="mb-3 d-flex align-items-center gap-2">
+                  <label>统计期数</label><input id="hot4Limit" type="number" class="form-control w-auto" value="100" min="10" style="width:100px;">
+                  <button class="btn btn-primary" onclick="queryHot4Stats()">统计</button>
+                </div>
+                <div id="hot4StatsResult"></div>
+              </div>
+            </div>`;
+            document.querySelector('.tab-content').insertAdjacentHTML('beforeend', hot4TabContent);
+
+            // 在统计Tab渲染前插入参数选择控件
+            const hot4ParamsHtml = `
+              <div class='row mb-2'>
+                <div class='col-auto'>
+                  <label class='form-label mb-0 me-1'>热门统计原始号码位</label>
+                  <input id='hot4SourcePositions' type='text' class='form-control form-control-sm d-inline-block' style='width:100px;' value='1,2,3,4,5,6,7' placeholder='如7'>
+                </div>
+                <div class='col-auto'>
+                  <label class='form-label mb-0 me-1'>号码位</label>
+                  <input id='hot4Positions' type='text' class='form-control form-control-sm d-inline-block' style='width:100px;' value='1,2,3,4,5,6,7' placeholder='如1,2,3'>
+                </div>
+                <div class='col-auto'>
+                  <label class='form-label mb-0 me-1'>命中位数≥</label>
+                  <input id='hot4HitCount' type='number' class='form-control form-control-sm d-inline-block' style='width:60px;' min='1' max='7' value='1'>
+                  <span class='ms-1'>位算命中</span>
+                </div>
+                <div class='col-auto'>
+                  <label class='form-label mb-0 me-1'>推荐热门</label>
+                  <input id='hot4NumCount' type='number' class='form-control form-control-sm d-inline-block' style='width:60px;' min='2' max='20' value='4'>
+                  <span class='ms-1'>码</span>
+                </div>
+                <div class='col-auto'>
+                  <button id='hot4StatsReload' class='btn btn-sm btn-primary'>刷新</button>
+                </div>
+              </div>
+            `;
+            document.getElementById('hot4StatsResult').insertAdjacentHTML('beforebegin', hot4ParamsHtml);
+
+            window.queryHot4Stats = async function() {
+              const limit = document.getElementById('hot4Limit').value.trim();
+              const sourcePositions = document.getElementById('hot4SourcePositions').value.trim();
+              const positions = document.getElementById('hot4Positions').value.trim();
+              const hitCount = parseInt(document.getElementById('hot4HitCount').value);
+              const numCount = parseInt(document.getElementById('hot4NumCount').value);
+              const res = await fetch(`/api/hot4-recommend-stats?year=${currentYear}&limit=${limit}&source_positions=${encodeURIComponent(sourcePositions)}&positions=${encodeURIComponent(positions)}&hit_count=${hitCount}&num_count=${numCount}`);
+              const data = await res.json();
+              if (!data.success) { document.getElementById('hot4StatsResult').innerHTML = '<div class="error">统计失败</div>'; return; }
+              
+              // 未来预算推荐
+              let futureHtml = '';
+              if(data.future_recommend && data.future_recommend.length) {
+                futureHtml = `<div class='mt-3'><b>未来预算推荐4码：</b> <span class='text-danger fw-bold'>${data.future_recommend.join(', ')}</span></div>`;
+              }
+              // 号码位命中/遗漏统计
+              let statsHtml = '';
+              statsHtml += `<div class='mt-3'><b>各号码位命中/遗漏统计：</b><div class='table-responsive'><table class='table table-bordered table-sm text-center'><thead><tr><th>号码位</th><th>总命中</th><th>总遗漏</th><th>当前连中</th><th>当前连挂</th><th>最大连中</th><th>最大连挂</th></tr></thead><tbody>`;
+              data.pos_stats.forEach(stat => {
+                statsHtml += `<tr><td>${stat.pos}</td><td>${stat.total_hit}</td><td>${stat.total_miss}</td><td>${stat.cur_hit}</td><td>${stat.cur_miss}</td><td>${stat.max_hit}</td><td>${stat.max_miss}</td></tr>`;
+              });
+              statsHtml += `</tbody></table></div></div>`;
+              // 整体命中统计
+              if(data.overall_stats) {
+                const s = data.overall_stats;
+                statsHtml += `<div class='mt-3'><b>整体命中/遗漏统计（7个位置只要中一个就算命中）：</b><div class='table-responsive'><table class='table table-bordered table-sm text-center'><thead><tr><th>总命中</th><th>总遗漏</th><th>当前连中</th><th>当前连挂</th><th>最大连中</th><th>最大连挂</th></tr></thead><tbody>`;
+                statsHtml += `<tr><td>${s.total_hit}</td><td>${s.total_miss}</td><td>${s.cur_hit}</td><td>${s.cur_miss}</td><td>${s.max_hit}</td><td>${s.max_miss}</td></tr>`;
+                statsHtml += `</tbody></table></div></div>`;
+              }
+              let html = `<div class='mb-2 text-muted'>每期推荐4码均为该期及之前近${limit}期动态统计</div>`;
+              html += `<div class='mb-2'>未来预算推荐4码：<b style='color:blue'>${(data.future_recommend||[]).join(', ')}</b></div>`;
+              html += `<div class='table-responsive'><table class='table table-bordered table-sm text-center'><thead><tr><th>期号</th><th>推荐4码</th><th>下一期号</th>`;
+              for(let i=1;i<=7;i++) html += `<th>下${i}位</th>`;
+              html += `</tr></thead><tbody>`;
+              // 渲染表格时按期号从大到小排序
+              data.result.slice().sort((a, b) => b.qishu.localeCompare(a.qishu)).forEach(row => {
+                html += `<tr><td>${row.qishu}</td><td>${row.recommend.join(',')}</td><td>${row.next_qishu}</td>`;
+                for(let i=0;i<7;i++) {
+                  html += `<td${row.hit[i]?' style=\"color:green\"':''}>${row.next_numbers[i]}${row.hit[i]?'✔':'×'}</td>`;
+                }
+                html += `</tr>`;
+              });
+              html += `</tbody></table></div>`;
+              // 统计表和未来预算推荐插入顺序调整
+              document.getElementById('hot4StatsResult').innerHTML =  futureHtml  + statsHtml + html;
+            }
+
+            // 绑定刷新按钮事件
+            if(!window.hot4StatsReloadBinded){
+              document.getElementById('hot4StatsReload').onclick = () => loadHot4Stats();
+              window.hot4StatsReloadBinded = true;
+            }
+
             // 在生肖开奖记录表格上方插入筛选区
             const zodiacTableDiv = document.getElementById('zodiacTable');
             if (zodiacTableDiv && !document.getElementById('zodiacFilterBar')) {

@@ -930,7 +930,7 @@ def api_get_favorite_numbers():
             for rec in records_sorted:
                 n = rec[f'number{position}']
                 qishu = rec['qishu']
-                draw_numbers = ','.join(str(rec[f'number{i}']) for i in range(1,8))
+                draw_numbers = ','.join(str(x) for x in nums)
                 if n in nums:
                     temp_streak += 1
                     temp_miss = 0
@@ -1055,5 +1055,128 @@ def api_update_favorite_number(fid):
         return jsonify({'success': True})
     except Exception as e:
         print(f"update favorite-number API错误: {str(e)}")
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/hot4-recommend-stats', methods=['GET'])
+def api_hot4_recommend_stats():
+    """热门4码推荐统计接口（所有期数都列出，每期用该期及其之前N期动态统计最热4码，出现次数>=2才推荐）"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        n = int(request.args.get('limit', 100))  # 推荐窗口N
+        hit_count = int(request.args.get('hit_count', 1))
+        num_count = int(request.args.get('num_count', 4))
+        positions = request.args.get('positions', '1,2,3,4,5,6,7')
+        pos_list = [int(x) for x in positions.split(',') if x.strip().isdigit() and 1 <= int(x) <= 7]
+        source_positions = request.args.get('source_positions', '1,2,3,4,5,6,7')
+        source_pos_list = [int(x) for x in source_positions.split(',') if x.strip().isdigit() and 1 <= int(x) <= 7]
+        # 获取所有开奖记录（最新在前）
+        records = db_manager.execute_query(
+            "SELECT qishu, draw_time, number1, number2, number3, number4, number5, number6, number7 FROM antapp_lotterydraw ORDER BY qishu DESC",
+            []
+        )
+        total = len(records)
+        from collections import Counter
+        result = []
+        # records倒序，最新在前，遍历所有可用期数
+        for i in range(total-1, 0, -1):  # i=最早到1（最新前一期）
+            # 推荐4码用i到i+N-1期（包含本期），窗口不足N期时用能取到的所有前期
+            period_records = records[i:min(i+n, total)]
+            all_numbers = []
+            for rec in period_records:
+                for j in source_pos_list:
+                    all_numbers.append(rec[f'number{j}'])
+            freq = Counter(all_numbers)
+            hot_candidates = [(num, cnt) for num, cnt in freq.items() if cnt >= 2]
+            hot_candidates.sort(key=lambda x: -x[1])
+            hot4 = [num for num, cnt in hot_candidates[:num_count]]
+            rec = records[i]
+            next_rec = records[i-1]
+            recommend = hot4[:]
+            next_numbers = [next_rec[f'number{j}'] for j in pos_list]
+            hit = [n in recommend for n in next_numbers]
+            # 命中位数判断
+            overall_hit = sum(hit) >= hit_count
+            result.append({
+                'qishu': rec['qishu'],
+                'draw_time': rec['draw_time'],
+                'recommend': recommend,
+                'next_qishu': next_rec['qishu'],
+                'next_numbers': next_numbers,
+                'hit': hit,
+                'overall_hit': overall_hit
+            })
+        # 统计每个位的命中/遗漏、连中/连挂、最大连中/连挂
+        pos_stats = []
+        for idx, pos in enumerate(pos_list):
+            seq = [row['hit'][idx] for row in result]
+            max_hit = max_miss = cur_hit = cur_miss = 0
+            tmp_hit = tmp_miss = 0
+            for h in seq:
+                if h:
+                    tmp_hit += 1
+                    max_hit = max(max_hit, tmp_hit)
+                    tmp_miss = 0
+                else:
+                    tmp_miss += 1
+                    max_miss = max(max_miss, tmp_miss)
+                    tmp_hit = 0
+            for h in reversed(seq):
+                if h: cur_hit += 1
+                else: break
+            for h in reversed(seq):
+                if not h: cur_miss += 1
+                else: break
+            pos_stats.append({
+                'pos': pos,
+                'max_hit': max_hit,
+                'max_miss': max_miss,
+                'cur_hit': cur_hit,
+                'cur_miss': cur_miss,
+                'total_hit': sum(seq),
+                'total_miss': len(seq)-sum(seq)
+            })
+        # 统计整体命中
+        overall_seq = [row['overall_hit'] for row in result]
+        overall_max_hit = overall_max_miss = overall_cur_hit = overall_cur_miss = 0
+        tmp_hit = tmp_miss = 0
+        for h in overall_seq:
+            if h:
+                tmp_hit += 1
+                overall_max_hit = max(overall_max_hit, tmp_hit)
+                tmp_miss = 0
+            else:
+                tmp_miss += 1
+                overall_max_miss = max(overall_max_miss, tmp_miss)
+                tmp_hit = 0
+        for h in reversed(overall_seq):
+            if h: overall_cur_hit += 1
+            else: break
+        for h in reversed(overall_seq):
+            if not h: overall_cur_miss += 1
+            else: break
+        overall_stats = {
+            'total_hit': sum(overall_seq),
+            'total_miss': len(overall_seq)-sum(overall_seq),
+            'cur_hit': overall_cur_hit,
+            'cur_miss': overall_cur_miss,
+            'max_hit': overall_max_hit,
+            'max_miss': overall_max_miss
+        }
+        # 未来预算推荐
+        future_period_records = records[0:n]
+        all_numbers = []
+        for rec in future_period_records:
+            for j in source_pos_list:
+                all_numbers.append(rec[f'number{j}'])
+        freq = Counter(all_numbers)
+        hot_candidates = [(num, cnt) for num, cnt in freq.items() if cnt >= 2]
+        hot_candidates.sort(key=lambda x: -x[1])
+        future_recommend = [num for num, cnt in hot_candidates[:num_count]]
+        return jsonify({'success': True, 'result': result, 'pos_stats': pos_stats, 'future_recommend': future_recommend, 'overall_stats': overall_stats})
+    except Exception as e:
+        print(f"hot4-recommend-stats API错误: {str(e)}")
         import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500 

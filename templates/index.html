@@ -1984,7 +1984,10 @@
                 });
                 html += '</tbody></table>';
             }
-            document.getElementById('focusList').innerHTML = html;
+            const focusListDiv = document.getElementById('focusList');
+            if (focusListDiv) {
+                focusListDiv.innerHTML = html;
+            }
         }
         function deleteFocus(idx) {
             const list = getFocusList();
@@ -1992,18 +1995,21 @@
             setFocusList(list);
             renderFocusList();
         }
-        document.getElementById('focusForm').onsubmit = function(e) {
-            e.preventDefault();
-            const number = parseInt(document.getElementById('focusNumber').value, 10);
-            const range = document.getElementById('focusRange').value;
-            const bet = document.getElementById('focusBet').value;
-            const remark = document.getElementById('focusRemark').value;
-            const list = getFocusList();
-            list.push({ number, range, bet, remark, analysis: '-' });
-            setFocusList(list);
-            renderFocusList();
-            this.reset();
-        };
+        const focusForm = document.getElementById('focusForm');
+        if (focusForm) {
+            focusForm.onsubmit = function(e) {
+                e.preventDefault();
+                const number = parseInt(document.getElementById('focusNumber').value, 10);
+                const range = document.getElementById('focusRange').value;
+                const bet = document.getElementById('focusBet').value;
+                const remark = document.getElementById('focusRemark').value;
+                const list = getFocusList();
+                list.push({ number, range, bet, remark, analysis: '-' });
+                setFocusList(list);
+                renderFocusList();
+                this.reset();
+            };
+        }
         document.addEventListener('DOMContentLoaded', renderFocusList);
     </script>
 </body>

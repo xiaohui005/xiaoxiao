@@ -175,7 +175,7 @@ class DatabaseManager:
         """测试数据库连接"""
         try:
             with self.get_connection() as conn:
-                conn.close()
+                pass  # 不要再调用conn.close()
             return True
         except Exception as e:
             print(f"数据库连接测试失败: {e}")
