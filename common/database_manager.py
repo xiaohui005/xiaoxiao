@@ -181,6 +181,27 @@ class DatabaseManager:
             print(f"数据库连接测试失败: {e}")
             return False
     
+    def execute_query(self, query, params=None):
+        """执行任意SQL，自动commit，返回select结果或受影响行数"""
+        try:
+            with self.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    if params:
+                        cursor.execute(query, params)
+                    else:
+                        cursor.execute(query)
+                    # 判断是否是查询
+                    if query.strip().lower().startswith('select'):
+                        results = cursor.fetchall()
+                        return results
+                    else:
+                        conn.commit()
+                        return cursor.rowcount
+        except Exception as e:
+            print(f"查询执行错误: {e}")
+            import traceback; traceback.print_exc()
+            return []
+    
     def get_latest_qishu(self):
         """获取最新期数"""
         try:

@@ -22,4 +22,9 @@ def get_status():
 @main_bp.route('/focus')
 def focus():
     """关注点登记页面"""
-    return render_template('focus.html') 
+    return render_template('focus.html')
+
+@main_bp.route('/zodiac')
+def zodiac():
+    """生肖开奖记录页面"""
+    return render_template('zodiac.html') 

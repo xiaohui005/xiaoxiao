@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生肖开奖记录 - 彩票开奖数据分析系统</title>
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/font-awesome-local.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/icons.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 20px;
+            padding: 30px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #333;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .lottery-number {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            line-height: 32px;
+            text-align: center;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border-radius: 50%;
+            margin: 0;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        /* 鲜红色球 - 1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46 */
+        .lottery-number.red {
+            background: linear-gradient(135deg, #ff4757, #ff3742);
+            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
+        }
+        
+        /* 绿色球 - 3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48 */
+        .lottery-number.green {
+            background: linear-gradient(135deg, #2ed573,rgb(24, 228, 24));
+            box-shadow: 0 2px 8px rgba(96, 243, 11, 0.91);
+        }
+        
+        /* 暗蓝色球 - 5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49 */
+        .lottery-number.blue {
+            background: linear-gradient(135deg, #3742fa, #2f3542);
+            box-shadow: 0 2px 8px rgba(55, 66, 250, 0.3);
+        }
+        
+        .zodiac-number {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            line-height: 32px;
+            text-align: center;
+            background: linear-gradient(135deg, #ffa726, #ff9800);
+            color: white;
+            border-radius: 50%;
+            margin: 0;
+            font-weight: bold;
+            font-size: 12px;
+            position: relative;
+        }
+        
+        .zodiac-name {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 9px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .zodiac-number:hover .zodiac-name {
+            opacity: 1;
+        }
+        
+        .filter-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .data-table {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 10px 25px;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #667eea;
+        }
+        
+        .error {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        
+        .zodiac-legend {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .zodiac-legend h5 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .zodiac-legend .row {
+            margin-bottom: 10px;
+        }
+        
+        .zodiac-legend .col-md-3 {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        /* 开奖号码与生肖分布样式 */
+        .lottery-zodiac-cell {
+            min-width: 300px;
+        }
+        
+        .lottery-numbers-row {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: center;
+            gap: 2px;
+        }
+        
+        .zodiac-numbers-row {
+            display: flex;
+            justify-content: center;
+            gap: 2px;
+        }
+        
+        /* 表头居中样式 */
+        .table thead th {
+            text-align: center !important;
+            vertical-align: middle;
+            font-weight: bold;
+            background-color: #343a40;
+            color: white;
+            border: none;
+            padding: 12px 8px;
+        }
+        
+        .table thead th.text-center {
+            text-align: center !important;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- 头部 -->
+            <div class="header">
+                <h1><i class="fas fa-dragon"></i> 生肖开奖记录</h1>
+                <p class="text-muted">开奖号码与生肖对应关系分析</p>
+                <a href="/" class="btn btn-outline-primary mt-2">
+                    <i class="fas fa-arrow-left"></i> 返回首页
+                </a>
+            </div>
+
+            <!-- 生肖对照表 -->
+            <div class="zodiac-legend">
+                <h5><i class="fas fa-info-circle"></i> 生肖对照表 <span id="currentYearDisplay">(2024年)</span></h5>
+                <div class="zodiac-legend-content">
+                    <!-- 动态生成的生肖对照表内容 -->
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <ul class="nav nav-tabs" id="mainTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-records" data-bs-toggle="tab" data-bs-target="#tabRecordsPane" type="button" role="tab">开奖记录</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-fav" data-bs-toggle="tab" data-bs-target="#tabFavPane" type="button" role="tab">关注号码管理</button>
+                    </li>
+                </ul>
+            </div>
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="tabRecordsPane" role="tabpanel">
+                    <!-- 原开奖记录内容（main-container） -->
+                    <div class="main-container" id="recordsContainer">
+                        <!-- 头部、生肖开奖记录、开奖表格等原内容放这里 -->
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="tabFavPane" role="tabpanel">
+                    <!-- 关注号码管理内容 -->
+                    <div class="main-container" id="favContainer">
+                        <div class="data-table mb-4" id="favoriteManager">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <b>关注号码管理</b>
+                                    <select id="favYear" class="form-select d-inline-block w-auto ms-2">
+                                        <option value="all">全部</option>
+                                        <option value="2025">2025</option>
+                                        <option value="2024">2024</option>
+                                    </select>
+                                    <select id="favPos" class="form-select d-inline-block w-auto ms-2">
+                                        <option value="1">第1个</option>
+                                        <option value="2">第2个</option>
+                                        <option value="3">第3个</option>
+                                        <option value="4">第4个</option>
+                                        <option value="5">第5个</option>
+                                        <option value="6">第6个</option>
+                                        <option value="7" selected>第7个(特号)</option>
+                                    </select>
+                                </div>
+                                <form id="favAddForm" class="d-flex align-items-center gap-2">
+                                    <input type="text" class="form-control" id="favName" placeholder="组名称" required style="width:120px;">
+                                    <input type="text" class="form-control" id="favNumber" placeholder="号码(1-49,多个用英文逗号隔开)" required style="width:320px;">
+                                    <button type="button" class="btn btn-primary" onclick="addFav()">添加</button>
+                                </form>
+                            </div>
+                            <div id="favList"></div>
+                            <div id="favAllNumbers" class="mb-2 text-secondary small"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script>
+            async function loadFavoriteNumbers() {
+                const year = document.getElementById('favYear').value;
+                const pos = document.getElementById('favPos').value;
+                const res = await fetch(`/api/favorite-numbers?year=${year}&position=${pos}`);
+                const data = await res.json();
+                if (!data.success) { document.getElementById('favList').innerHTML = '<div class="error">加载失败</div>'; return; }
+                let html = '<table class="table table-bordered table-sm text-center"><thead><tr><th>组名称</th><th>号码</th><th>最大连中</th><th>最大遗漏</th><th>当前连中</th><th>当前遗漏</th><th>操作</th></tr></thead><tbody>';
+                if (data.data.length === 0) html += '<tr><td colspan="7">暂无关注号码</td></tr>';
+                data.data.forEach((row, idx) => {
+                    const missId = `missDetail${row.id}`;
+                    const hitId = `hitDetail${row.id}`;
+                    html += `<tr><td>${row.name}</td><td>${row.numbers}</td><td>${row.max_streak}</td><td>${row.max_miss}</td><td>${row.current_streak}</td><td>${row.current_miss}</td><td><button class='btn btn-danger btn-sm' onclick='deleteFav(${row.id})'>删除</button> <button class='btn btn-primary btn-sm' onclick='editFav(${row.id}, \"${row.name}\", \"${row.numbers}\")'>编辑</button></td></tr>`;
+                    // 删除遗漏详情和连中详情按钮及相关内容
+                });
+                function toggleDetail(id) {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = (el.style.display === 'none' ? '' : 'none');
+                }
+                html += '</tbody></table>';
+                document.getElementById('favList').innerHTML = html;
+
+                // 组明细Tab（每组显示所有期数明细）
+                let tabNav = '<ul class="nav nav-tabs mt-4" id="favDetailTab" role="tablist">';
+                let tabContent = '<div class="tab-content" id="favDetailTabContent">';
+                data.data.forEach((row, idx) => {
+                    const active = idx === 0 ? 'active' : '';
+                    const show = idx === 0 ? 'show active' : '';
+                    tabNav += `<li class="nav-item" role="presentation"><button class="nav-link ${active}" id="tab${row.id}" data-bs-toggle="tab" data-bs-target="#tabPane${row.id}" type="button" role="tab">${row.name}</button></li>`;
+                    tabContent += `<div class="tab-pane fade ${show}" id="tabPane${row.id}" role="tabpanel">`;
+                    tabContent += `<div class='table-responsive'><table class='table table-bordered table-sm'><thead><tr><th>期数</th><th>关注组号码</th><th>开奖号码</th><th>当前遗漏</th><th>当前连中</th><th>最大遗漏</th><th>最大连中</th></tr></thead><tbody>`;
+                    if (row.all_details && row.all_details.length > 0) {
+                        row.all_details.forEach(detail => {
+                            tabContent += `<tr><td>${detail.qishu}</td><td>${detail.numbers}</td><td>${detail.draw}</td><td>${detail.current_miss}</td><td>${detail.current_streak}</td><td>${detail.max_miss}</td><td>${detail.max_streak}</td></tr>`;
+                        });
+                    } else {
+                        tabContent += `<tr><td colspan='7'>无明细</td></tr>`;
+                    }
+                    tabContent += '</tbody></table></div>';
+                    tabContent += '</div>';
+                });
+                tabNav += '</ul>';
+                tabContent += '</div>';
+                document.getElementById('favList').innerHTML += tabNav + tabContent;
+
+                // 展示所有关注号码（去重、排序）
+                const nums = data.data.map(row => row.number).filter(x => !!x);
+                const uniqueSorted = Array.from(new Set(nums)).sort((a,b)=>a-b);
+                if (uniqueSorted.length > 0) {
+                    document.getElementById('favAllNumbers').innerHTML = '你关注的号码：' + uniqueSorted.join(', ');
+                } else {
+                    document.getElementById('favAllNumbers').innerHTML = '';
+                }
+            }
+            async function deleteFav(id) {
+                if (!confirm('确定删除该关注号码组？')) return;
+                await fetch(`/api/favorite-numbers/${id}`, {method:'DELETE'});
+                loadFavoriteNumbers();
+            }
+            // 新增编辑按钮的弹窗和逻辑
+            function editFav(id, name, numbers) {
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = `<div style='margin-bottom:8px;'>多个号码请用英文逗号隔开，如：1,2,3</div><input id='favEditInput' type='text' style='width:320px;padding:6px 10px;' value='${numbers}'>`;
+                const modal = document.createElement('div');
+                modal.style.position = 'fixed';
+                modal.style.left = '0';
+                modal.style.top = '0';
+                modal.style.width = '100vw';
+                modal.style.height = '100vh';
+                modal.style.background = 'rgba(0,0,0,0.2)';
+                modal.style.display = 'flex';
+                modal.style.alignItems = 'center';
+                modal.style.justifyContent = 'center';
+                modal.style.zIndex = 9999;
+                const box = document.createElement('div');
+                box.style.background = '#fff';
+                box.style.padding = '24px 32px';
+                box.style.borderRadius = '8px';
+                box.style.boxShadow = '0 2px 12px rgba(0,0,0,0.15)';
+                box.appendChild(wrapper);
+                const btnRow = document.createElement('div');
+                btnRow.style.textAlign = 'right';
+                btnRow.style.marginTop = '12px';
+                const okBtn = document.createElement('button');
+                okBtn.textContent = '确定';
+                okBtn.className = 'btn btn-primary btn-sm';
+                okBtn.onclick = function() {
+                    const newNumbers = document.getElementById('favEditInput').value;
+                    document.body.removeChild(modal);
+                    fetch(`/api/favorite-numbers/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ numbers: newNumbers })
+                    }).then(res => res.json()).then(data => {
+                        if (data.success) {
+                            loadFavoriteNumbers();
+                        } else {
+                            alert('修改失败：' + (data.error || '未知错误'));
+                        }
+                    });
+                };
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = '取消';
+                cancelBtn.className = 'btn btn-secondary btn-sm ms-2';
+                cancelBtn.onclick = function() { document.body.removeChild(modal); };
+                btnRow.appendChild(okBtn);
+                btnRow.appendChild(cancelBtn);
+                box.appendChild(btnRow);
+                modal.appendChild(box);
+                document.body.appendChild(modal);
+                document.getElementById('favEditInput').focus();
+            }
+            function addFav() {
+                const name = document.getElementById('favName').value.trim();
+                const numbers = document.getElementById('favNumber').value.trim();
+                if (!name) { alert('请输入组名称'); return; }
+                if (!numbers) { alert('请输入号码'); return; }
+                fetch('/api/favorite-numbers/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, numbers })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        loadFavoriteNumbers();
+                        document.getElementById('favName').value = '';
+                        document.getElementById('favNumber').value = '';
+                    } else {
+                        alert('添加失败：' + (data.error || '未知错误'));
+                    }
+                });
+            }
+            // 页面加载时自动加载
+            loadFavoriteNumbers();
+            </script>
+
+            <div class="data-table">
+                <h4><i class="fas fa-table"></i> 生肖开奖记录</h4>
+                <div id="zodiacTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        // 生肖映射表（默认最新年份）
+        let currentYear = 2025; // 当前最新年份
+        let zodiacMap = {};
+        
+        // 生肖年份映射配置
+        const zodiacYearMapping = {
+            2023: {
+                '兔': [1,13,25,37,49], '龙': [12,24,36,48], '蛇': [11,23,35,47], '马': [10,22,34,46],
+                '羊': [9,21,33,45], '猴': [8,20,32,44], '鸡': [7,19,31,43], '狗': [6,18,30,42],
+                '猪': [5,17,29,41], '鼠': [4,16,28,40], '牛': [3,15,27,39], '虎': [2,14,26,38]
+            },
+            2024: {
+                '龙': [1,13,25,37,49], '蛇': [12,24,36,48], '马': [11,23,35,47], '羊': [10,22,34,46],
+                '猴': [9,21,33,45], '鸡': [8,20,32,44], '狗': [7,19,31,43], '猪': [6,18,30,42],
+                '鼠': [5,17,29,41], '牛': [4,16,28,40], '虎': [3,15,27,39], '兔': [2,14,26,38]
+            },
+            2025: {
+                '蛇': [1,13,25,37,49], '马': [12,24,36,48], '羊': [11,23,35,47], '猴': [10,22,34,46],
+                '鸡': [9,21,33,45], '狗': [8,20,32,44], '猪': [7,19,31,43], '鼠': [6,18,30,42],
+                '牛': [5,17,29,41], '虎': [4,16,28,40], '兔': [3,15,27,39], '龙': [2,14,26,38]
+            },
+            2026: {
+                '马': [1,13,25,37,49], '羊': [12,24,36,48], '猴': [11,23,35,47], '鸡': [10,22,34,46],
+                '狗': [9,21,33,45], '猪': [8,20,32,44], '鼠': [7,19,31,43], '牛': [6,18,30,42],
+                '虎': [5,17,29,41], '兔': [4,16,28,40], '龙': [3,15,27,39], '蛇': [2,14,26,38]
+            },
+            2027: {
+                '羊': [1,13,25,37,49], '猴': [12,24,36,48], '鸡': [11,23,35,47], '狗': [10,22,34,46],
+                '猪': [9,21,33,45], '鼠': [8,20,32,44], '牛': [7,19,31,43], '虎': [6,18,30,42],
+                '兔': [5,17,29,41], '龙': [4,16,28,40], '蛇': [3,15,27,39], '马': [2,14,26,38]
+            },
+            2028: {
+                '猴': [1,13,25,37,49], '鸡': [12,24,36,48], '狗': [11,23,35,47], '猪': [10,22,34,46],
+                '鼠': [9,21,33,45], '牛': [8,20,32,44], '虎': [7,19,31,43], '兔': [6,18,30,42],
+                '龙': [5,17,29,41], '蛇': [4,16,28,40], '马': [3,15,27,39], '羊': [2,14,26,38]
+            },
+            2029: {
+                '鸡': [1,13,25,37,49], '狗': [12,24,36,48], '猪': [11,23,35,47], '鼠': [10,22,34,46],
+                '牛': [9,21,33,45], '虎': [8,20,32,44], '兔': [7,19,31,43], '龙': [6,18,30,42],
+                '蛇': [5,17,29,41], '马': [4,16,28,40], '羊': [3,15,27,39], '猴': [2,14,26,38]
+            },
+            2030: {
+                '狗': [1,13,25,37,49], '猪': [12,24,36,48], '鼠': [11,23,35,47], '牛': [10,22,34,46],
+                '虎': [9,21,33,45], '兔': [8,20,32,44], '龙': [7,19,31,43], '蛇': [6,18,30,42],
+                '马': [5,17,29,41], '羊': [4,16,28,40], '猴': [3,15,27,39], '鸡': [2,14,26,38]
+            },
+            2031: {
+                '猪': [1,13,25,37,49], '鼠': [12,24,36,48], '牛': [11,23,35,47], '虎': [10,22,34,46],
+                '兔': [9,21,33,45], '龙': [8,20,32,44], '蛇': [7,19,31,43], '马': [6,18,30,42],
+                '羊': [5,17,29,41], '猴': [4,16,28,40], '鸡': [3,15,27,39], '狗': [2,14,26,38]
+            },
+            2032: {
+                '鼠': [1,13,25,37,49], '牛': [12,24,36,48], '虎': [11,23,35,47], '兔': [10,22,34,46],
+                '龙': [9,21,33,45], '蛇': [8,20,32,44], '马': [7,19,31,43], '羊': [6,18,30,42],
+                '猴': [5,17,29,41], '鸡': [4,16,28,40], '狗': [3,15,27,39], '猪': [2,14,26,38]
+            }
+        };
+        
+        // 获取最新年份
+        function getLatestYear() {
+            const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            // 如果当前年份在配置中，使用当前年份，否则使用配置中的最大年份
+            if (zodiacYearMapping[currentYear]) {
+                return currentYear;
+            } else {
+                return Math.max(...Object.keys(zodiacYearMapping).map(Number));
+            }
+        }
+        
+        // 更新生肖映射表
+        function updateZodiacMap(year) {
+            currentYear = year;
+            zodiacMap = {};
+            if (zodiacYearMapping[year]) {
+                for (const [zodiac, numbers] of Object.entries(zodiacYearMapping[year])) {
+                    numbers.forEach(num => {
+                        zodiacMap[num] = zodiac;
+                    });
+                }
+            }
+            updateZodiacLegend(year);
+        }
+        
+        // 更新生肖对照表显示
+        function updateZodiacLegend(year) {
+            if (!zodiacYearMapping[year]) return;
+            
+            const legendContainer = document.querySelector('.zodiac-legend-content');
+            const yearDisplay = document.getElementById('currentYearDisplay');
+            if (!legendContainer) return;
+            
+            // 更新年份显示
+            if (yearDisplay) {
+                yearDisplay.textContent = `(${year}年)`;
+            }
+            
+            let html = '';
+            const zodiacs = Object.keys(zodiacYearMapping[year]);
+            
+            // 每行显示4个生肖
+            for (let i = 0; i < zodiacs.length; i += 4) {
+                html += '<div class="row">';
+                for (let j = 0; j < 4 && i + j < zodiacs.length; j++) {
+                    const zodiac = zodiacs[i + j];
+                    const numbers = zodiacYearMapping[year][zodiac];
+                    html += `<div class="col-md-3">
+                        <span class="zodiac-number">${zodiac}</span>
+                        <span class="ms-2">${zodiac} (${numbers.join(',')})</span>
+                    </div>`;
+                }
+                html += '</div>';
+            }
+            
+            legendContainer.innerHTML = html;
+        }
+
+        // 获取当前年份的生肖对应数字
+        function getZodiacNumbers(year, zodiac) {
+            if (zodiacYearMapping[year] && zodiacYearMapping[year][zodiac]) {
+                return zodiacYearMapping[year][zodiac];
+            }
+            return [];
+        }
+
+        // 获取号码的颜色类
+        function getNumberColorClass(num) {
+            const redNumbers = [1,2,7,8,12,13,18,19,23,24,29,30,34,35,40,45,46];
+            const blueNumbers = [3,4,9,10,14,15,20,25,26,31,36,37,41,42,47,48];
+            const greenNumbers = [5,6,11,16,17,21,22,27,28,32,33,38,39,43,44,49];
+            
+            if (redNumbers.includes(num)) return 'red';
+            if (blueNumbers.includes(num)) return 'blue';
+            if (greenNumbers.includes(num)) return 'green';
+            return '';
+        }
+
+        // 获取号码对应的生肖（根据开奖时间年份动态查找）
+        function getZodiacByNumberAndDrawTime(num, drawTime) {
+            let year = 2025;
+            if (drawTime) {
+                const date = new Date(drawTime);
+                if (!isNaN(date.getTime())) {
+                    year = date.getFullYear();
+                }
+            }
+            const mapping = zodiacYearMapping[year];
+            num = parseInt(num, 10);
+            if (mapping) {
+                for (const [zodiac, numbers] of Object.entries(mapping)) {
+                    const arr = Array.isArray(numbers) ? numbers : numbers.split(',');
+                    for (let n of arr) {
+                        if (parseInt(n, 10) === num) {
+                            return zodiac;
+                        }
+                    }
+                }
+            }
+            return '';
+        }
+
+        // 创建带生肖标识的号码球
+        function createZodiacNumberBall(num, drawTime) {
+            const colorClass = getNumberColorClass(num);
+            const zodiac = getZodiacByNumberAndDrawTime(num, drawTime);
+            
+            return `<span class="zodiac-number" title="${zodiac}">
+                ${zodiac}
+                <span class="zodiac-name">${zodiac}</span>
+            </span>`;
+        }
+
+        // 加载生肖开奖数据
+        async function loadZodiacData() {
+            const yearSelect = document.getElementById('zodiacYear');
+            const year = yearSelect ? yearSelect.value : '2025';
+            const limitSelect = document.getElementById('zodiacLimit');
+            const limit = limitSelect ? limitSelect.value : 50; // 默认50条
+            const zodiacSelect = document.getElementById('zodiacZodiac');
+            const zodiac = zodiacSelect ? zodiacSelect.value : 'all';
+            
+            document.getElementById('zodiacTable').innerHTML = '<div class="loading">加载中...</div>';
+            
+            try {
+                const response = await fetch(`/api/zodiac-records?year=${year}&limit=${limit}&zodiac=${zodiac}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayZodiacData(result.data);
+                } else {
+                    document.getElementById('zodiacTable').innerHTML = '<div class="error">没有找到数据</div>';
+                }
+            } catch (error) {
+                document.getElementById('zodiacTable').innerHTML = '<div class="error">加载失败</div>';
+                console.error('加载生肖数据失败:', error);
+            }
+        }
+
+        // 显示生肖开奖数据
+        function displayZodiacData(data) {
+            const container = document.getElementById('zodiacTable');
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-4">暂无开奖数据</div>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive">';
+            html += '<table class="table table-hover">';
+            html += '<thead class="table-dark">';
+            html += '<tr><th class="text-center">期数</th><th class="text-center">开奖时间</th><th class="text-center">开奖号码与生肖</th><th class="text-center">生肖统计</th></tr>';
+            html += '</thead><tbody>';
+            
+            data.forEach((item, index) => {
+                const rowClass = index === 0 ? 'table-warning' : '';
+                html += `<tr class="${rowClass}">`;
+                html += `<td><strong>${item.qishu}</strong></td>`;
+                
+                // 格式化开奖时间
+                let formattedTime = '';
+                if (item.draw_time) {
+                    const date = new Date(item.draw_time);
+                    if (!isNaN(date.getTime())) {
+                        const year = date.getFullYear();
+                        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                        const day = date.getDate().toString().padStart(2, '0');
+                        formattedTime = `${year} ${month}-${day}`;
+                    } else {
+                        formattedTime = item.draw_time;
+                    }
+                }
+                html += `<td>${formattedTime}</td>`;
+                
+                // 开奖号码与生肖分布
+                html += '<td class="lottery-zodiac-cell">'; // 新增类名
+                html += '<div class="lottery-numbers-row">'; // 新增类名
+                item.numbers.forEach(num => {
+                    const colorClass = getNumberColorClass(num);
+                    html += `<span class="lottery-number ${colorClass}">${num}</span>`;
+                });
+                html += '</div>';
+                html += '<div class="zodiac-numbers-row">'; // 新增类名
+                if (item.zodiacs && item.zodiacs.length === item.numbers.length) {
+                    for (let i = 0; i < item.numbers.length; i++) {
+                        const num = item.numbers[i];
+                        const zodiac = item.zodiacs[i] || '';
+                        const colorClass = getNumberColorClass(num);
+                        html += `<span class="zodiac-number ${colorClass}" title="${zodiac}">${zodiac}<span class="zodiac-name">${zodiac}</span></span>`;
+                    }
+                } else {
+                    item.numbers.forEach(num => {
+                        html += `<span class="zodiac-number">?</span>`;
+                    });
+                }
+                html += '</div>';
+                html += '</td>';
+                
+                // 生肖统计
+                html += '<td>';
+                const zodiacCount = {};
+                item.numbers.forEach(num => {
+                    const zodiac = getZodiacByNumberAndDrawTime(num, item.draw_time);
+                    if (zodiac) {
+                        zodiacCount[zodiac] = (zodiacCount[zodiac] || 0) + 1;
+                    }
+                });
+                
+                Object.entries(zodiacCount).forEach(([zodiac, count]) => {
+                    html += `<span class="badge bg-primary me-1">${zodiac}:${count}</span>`;
+                });
+                html += '</td>';
+                
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            
+            // 添加说明
+            html += '<div class="mt-3">';
+            html += '<div class="row text-center">';
+            html += '<div class="col-md-4"><span class="lottery-number red" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">1</span> 鲜红色球</div>';
+            html += '<div class="col-md-4"><span class="lottery-number green" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">5</span> 绿色球</div>';
+            html += '<div class="col-md-4"><span class="lottery-number blue" style="width: 25px; height: 25px; line-height: 25px; font-size: 12px;">3</span> 暗蓝色球</div>';
+            html += '</div>';
+            html += '<div class="row text-center mt-2">';
+            html += '<div class="col-12"><small class="text-muted">橙色球显示对应号码的生肖</small></div>';
+            html += '</div>';
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        // 加载年份选项
+        async function loadYearOptions() {
+            try {
+                const response = await fetch('/api/years');
+                const result = await response.json();
+                const yearSelect = document.getElementById('zodiacYear');
+                if (!yearSelect) return; // 没有这个元素就直接返回
+                if (result.success && result.data && result.data.length > 0) {
+                    
+                    // 清空现有选项
+                    yearSelect.innerHTML = '<option value="all">全部</option>';
+                    
+                    // 获取数据库中的年份
+                    const dbYears = result.data.map(year => parseInt(year)).sort((a, b) => b - a);
+                    
+                    // 生肖年份配置
+                    const zodiacYears = [2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032];
+                    
+                    // 只显示数据库中存在数据的生肖年份，并按从大到小排序
+                    const availableZodiacYears = zodiacYears.filter(year => dbYears.includes(year)).sort((a, b) => b - a);
+                    
+                    // 添加生肖年份选项（从大到小）
+                    availableZodiacYears.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = `${year}年`;
+                        yearSelect.appendChild(option);
+                    });
+                    
+                    // 添加其他数据库年份选项（不在生肖配置中的，从大到小）
+                    const otherYears = dbYears.filter(year => !availableZodiacYears.includes(year));
+                    otherYears.forEach(year => {
+                        const option = document.createElement('option');
+                        option.value = year;
+                        option.textContent = `${year}年(数据库)`;
+                        yearSelect.appendChild(option);
+                    });
+                    
+                    // 设置默认年份 - 优先选择最新的生肖年份，如果没有则选择数据库中最新的年份
+                    let defaultYear;
+                    if (availableZodiacYears.length > 0) {
+                        // 使用可用的最新生肖年份
+                        defaultYear = availableZodiacYears[0];
+                    } else if (dbYears.length > 0) {
+                        // 使用数据库中的最新年份
+                        defaultYear = dbYears[0];
+                    } else {
+                        // 使用2025年作为后备
+                        defaultYear = 2025;
+                    }
+                    
+                    currentYear = defaultYear;
+                    yearSelect.value = defaultYear;
+                    updateZodiacMap(defaultYear);
+                    
+                    console.log('年份选项加载成功:', availableZodiacYears.length, '个生肖年份，默认年份:', defaultYear);
+                    return Promise.resolve();
+                } else {
+                    console.warn('没有获取到年份数据，使用默认配置');
+                    // 使用默认年份
+                    const defaultYear = 2025;
+                    currentYear = defaultYear;
+                    const yearSelect = document.getElementById('zodiacYear');
+                    if (yearSelect) {
+                        yearSelect.value = defaultYear;
+                    }
+                    updateZodiacMap(defaultYear);
+                    return Promise.resolve();
+                }
+            } catch (error) {
+                console.error('加载年份选项失败:', error);
+                // 使用默认年份
+                const defaultYear = 2025;
+                currentYear = defaultYear;
+                const yearSelect = document.getElementById('zodiacYear');
+                if (yearSelect) {
+                    yearSelect.value = defaultYear;
+                }
+                updateZodiacMap(defaultYear);
+                return Promise.reject(error);
+            }
+        }
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 先加载年份选项，然后加载数据
+            loadYearOptions().then(() => {
+                // 年份选项加载完成后再加载数据
+                loadZodiacData();
+            }).catch(() => {
+                // 如果年份加载失败，仍然加载数据
+                loadZodiacData();
+            });
+            
+            const zodiacYear = document.getElementById('zodiacYear');
+            if (zodiacYear) {
+                zodiacYear.addEventListener('change', function() {
+                    const selectedYear = parseInt(this.value);
+                    if (zodiacYearMapping[selectedYear]) {
+                        updateZodiacMap(selectedYear);
+                    }
+                });
+            }
+
+            // Tab切换时懒加载关注号码管理内容和事件
+            let favTabInitialized = false;
+            document.getElementById('tab-fav').addEventListener('shown.bs.tab', function () {
+                if (!favTabInitialized) {
+                    // 只绑定一次事件
+                    const favYear = document.getElementById('favYear');
+                    const favPos = document.getElementById('favPos');
+                    const favAddForm = document.getElementById('favAddForm');
+                    if (favYear) favYear.onchange = loadFavoriteNumbers;
+                    if (favPos) favPos.onchange = loadFavoriteNumbers;
+                    // 替换添加关注号码表单的号码输入框
+                    if (favAddForm) {
+                        favAddForm.innerHTML = `
+                            <input type="text" class="form-control" id="favName" placeholder="组名称" required style="width:120px;">
+                            <input type="text" class="form-control" id="favNumber" placeholder="号码(1-49,多个用英文逗号隔开)" required style="width:320px;">
+                            <button type="button" class="btn btn-primary" onclick="addFav()">添加</button>
+                        `;
+                    }
+                    favTabInitialized = true;
+                }
+                loadFavoriteNumbers();
+            });
+            // 初始化生肖对照表，保证一进页面就有内容
+            updateZodiacLegend(currentYear || 2025);
+
+            // 在生肖开奖记录表格上方插入筛选区
+            const zodiacTableDiv = document.getElementById('zodiacTable');
+            if (zodiacTableDiv && !document.getElementById('zodiacFilterBar')) {
+                const filterBar = document.createElement('div');
+                filterBar.id = 'zodiacFilterBar';
+                filterBar.className = 'mb-3 d-flex align-items-center';
+                filterBar.innerHTML = `
+                    <label class='me-2'>年份</label>
+                    <select id='zodiacYear' class='form-select d-inline-block w-auto me-3'></select>
+                    <label class='me-2'>显示条数</label>
+                    <select id='zodiacLimit' class='form-select d-inline-block w-auto' style='min-width:80px;'>
+                        <option value='10'>10条</option>
+                        <option value='20'>20条</option>
+                        <option value='50' selected>50条</option>
+                        <option value='100'>100条</option>
+                        <option value='200'>200条</option>
+                        <option value='1000'>1000条</option>
+                    </select>
+                `;
+                zodiacTableDiv.parentNode.insertBefore(filterBar, zodiacTableDiv);
+                document.getElementById('zodiacLimit').addEventListener('change', loadZodiacData);
+                document.getElementById('zodiacYear').addEventListener('change', loadZodiacData);
+            }
+        });
+    </script>
+</body>
+</html> 

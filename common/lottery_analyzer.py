@@ -9,6 +9,9 @@ import pandas as pd
 import numpy as np
 from collections import Counter
 import json
+import lunarcalendar
+from lunarcalendar.converter import Solar, Lunar
+from datetime import datetime
 
 class LotteryAnalyzer:
     """彩票数据分析器类"""
@@ -635,3 +638,26 @@ class LotteryAnalyzer:
         except Exception as e:
             print(f"前6码±N推荐分析错误: {e}")
             return {'error': str(e)} 
+
+def solar_to_lunar(date_str):
+    """
+    新历日期字符串转农历（返回 dict: year, month, day, is_leap）
+    支持 'YYYY-MM-DD' 或 'YYYY-MM-DD HH:MM:SS'
+    """
+    try:
+        from lunarcalendar import Converter, Solar
+        if len(date_str) > 10:
+            dt = datetime.strptime(date_str[:10], '%Y-%m-%d')
+        else:
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+        solar = Solar(dt.year, dt.month, dt.day)
+        lunar = Converter.Solar2Lunar(solar)
+        return {
+            'year': lunar.year,
+            'month': lunar.month,
+            'day': lunar.day,
+            'is_leap': getattr(lunar, 'isleap', False)
+        }
+    except Exception as e:
+        print(f"solar_to_lunar error: {e}")
+        return None 

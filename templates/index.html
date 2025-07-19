@@ -325,6 +325,8 @@
                 <p class="text-muted">专业的彩票数据分析和统计平台</p>
                 <!-- 新增关注点登记按钮 -->
                 <button class="btn btn-warning mt-3" id="gotoFocusBtn"><i class="fas fa-star"></i> 关注点登记</button>
+                <!-- 新增生肖开奖记录按钮 -->
+                <button class="btn btn-info mt-3 ms-2" id="gotoZodiacBtn"><i class="fas fa-dragon"></i> 生肖开奖记录</button>
             </div>
 
             <!-- 统计卡片 -->
@@ -623,6 +625,14 @@
             if (gotoFocusBtn) {
                 gotoFocusBtn.addEventListener('click', function() {
                     window.location.href = '/focus';
+                });
+            }
+            
+            // 新增：生肖开奖记录按钮跳转
+            const gotoZodiacBtn = document.getElementById('gotoZodiacBtn');
+            if (gotoZodiacBtn) {
+                gotoZodiacBtn.addEventListener('click', function() {
+                    window.location.href = '/zodiac';
                 });
             }
         });

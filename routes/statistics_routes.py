@@ -93,4 +93,30 @@ def get_hot_cold():
     except Exception as e:
         print(f"冷热号码API错误: {str(e)}")
         traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@statistics_bp.route('/years')
+def get_years():
+    """获取年份列表API"""
+    if not get_database_status():
+        return jsonify({
+            'error': '数据库连接不可用，请检查配置或使用演示版本',
+            'demo_url': 'http://localhost:5001'
+        }), 503
+    
+    try:
+        db_manager = get_db_manager()
+        query = "SELECT DISTINCT LEFT(qishu, 4) as year FROM lottery_data WHERE qishu IS NOT NULL ORDER BY year DESC"
+        results = db_manager.execute_query(query)
+        
+        years = [row['year'] for row in results if row['year']]
+        
+        return jsonify({
+            'success': True,
+            'data': years
+        })
+    
+    except Exception as e:
+        print(f"年份API错误: {str(e)}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500 

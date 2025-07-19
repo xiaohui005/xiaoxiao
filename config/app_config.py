@@ -11,11 +11,18 @@ class AppConfig:
     
     # 服务器配置
     HOST = '0.0.0.0'
-    PORT = 5003
+    PORT = 5004
     
     # 数据库配置
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'db_config.json')
-    if os.path.exists(config_path):
+    # 优先读取exe同目录下的db_config.json
+    exe_dir = os.path.dirname(os.path.abspath(__file__))
+    run_dir = os.path.abspath(os.getcwd())
+    external_path = os.path.join(run_dir, 'db_config.json')
+    config_path = os.path.join(exe_dir, '..', 'db_config.json')
+    if os.path.exists(external_path):
+        with open(external_path, 'r', encoding='utf-8') as f:
+            DATABASE_CONFIG = json.load(f)
+    elif os.path.exists(config_path):
         with open(config_path, 'r', encoding='utf-8') as f:
             DATABASE_CONFIG = json.load(f)
     else:

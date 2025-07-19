@@ -5,6 +5,8 @@ import pandas as pd
 from shared_config import get_database_status, get_db_manager
 from common.lottery_analyzer import LotteryAnalyzer
 from config.app_config import AppConfig
+from config.zodiac_config import get_zodiac_numbers_by_year, get_zodiac_by_number_and_lunar_date
+from common.lottery_analyzer import solar_to_lunar
 
 data_bp = Blueprint('data', __name__)
 
@@ -615,4 +617,443 @@ def api_bet_report():
     except Exception as e:
         print(f"bet-report API错误: {str(e)}")
         traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/years', methods=['GET'])
+def api_get_years():
+    """获取数据库中的年份列表API"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        
+        query = """
+            SELECT DISTINCT YEAR(draw_time) as year
+            FROM antapp_lotterydraw 
+            WHERE draw_time IS NOT NULL
+            ORDER BY year DESC
+        """
+        
+        results = db_manager.execute_query(query)
+        
+        years = []
+        for row in results:
+            year = row['year']
+            if year is not None:
+                # 确保年份是有效的
+                if isinstance(year, int) and 1900 <= year <= 2100:
+                    years.append(str(year))
+                elif isinstance(year, str) and year.isdigit() and 1900 <= int(year) <= 2100:
+                    years.append(year)
+        
+        return jsonify({'success': True, 'data': years})
+    except Exception as e:
+        print(f"years API错误: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/test-2025', methods=['GET'])
+def test_2025():
+    """测试2025年数据查询"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        
+        # 直接查询2025年的最新10期
+        query = """
+            SELECT qishu, draw_time, number1, number2, number3, number4, number5, number6, number7
+            FROM antapp_lotterydraw 
+            WHERE qishu LIKE '2025%'
+            ORDER BY qishu DESC 
+            LIMIT 10
+        """
+        
+        results = db_manager.execute_query(query)
+        
+        # 格式化数据
+        formatted_data = []
+        for row in results:
+            numbers = [row['number1'], row['number2'], row['number3'], row['number4'], row['number5'], row['number6'], row['number7']]
+            formatted_data.append({
+                'qishu': row['qishu'],
+                'draw_time': row['draw_time'],
+                'numbers': numbers
+            })
+        
+        return jsonify({
+            'success': True, 
+            'data': formatted_data,
+            'total': len(formatted_data),
+            'first_qishu': formatted_data[0]['qishu'] if formatted_data else None
+        })
+    except Exception as e:
+        print(f"test-2025 API错误: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/zodiac-records', methods=['GET'])
+def api_get_zodiac_records():
+    """生肖开奖记录API"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        year = request.args.get('year', 'all')
+        limit = request.args.get('limit', 200, type=int)  # 增加默认限制到200
+        zodiac = request.args.get('zodiac', 'all')
+        
+        db_manager = get_db_manager()
+        
+        # 构建查询条件
+        where_conditions = []
+        params = []
+        
+        if year != 'all':
+            where_conditions.append("qishu LIKE %s")
+            params.append(f"{year}%")
+        
+        # 生肖筛选逻辑 - 根据年份获取对应的生肖号码
+        
+        zodiac_numbers = {}
+        if year != 'all' and year.isdigit():
+            year_int = int(year)
+            for zodiac in ['鼠', '牛', '虎', '兔', '龙', '蛇', '马', '羊', '猴', '鸡', '狗', '猪']:
+                numbers = get_zodiac_numbers_by_year(year_int, zodiac)
+                if numbers:
+                    zodiac_numbers[zodiac] = numbers
+        else:
+            # 默认使用2025年的生肖映射
+            zodiac_numbers = {
+                '鼠': [6, 18, 30, 42],
+                '牛': [5, 17, 29, 41],
+                '虎': [4, 16, 28, 40],
+                '兔': [3, 15, 27, 39],
+                '龙': [2, 14, 26, 38],
+                '蛇': [1, 13, 25, 37, 49],
+                '马': [12, 24, 36, 48],
+                '羊': [11, 23, 35, 47],
+                '猴': [10, 22, 34, 46],
+                '鸡': [9, 21, 33, 45],
+                '狗': [8, 20, 32, 44],
+                '猪': [7, 19, 31, 43]
+            }
+        
+        if zodiac != 'all' and zodiac in zodiac_numbers:
+            numbers = zodiac_numbers[zodiac]
+            placeholders = ','.join(['%s'] * len(numbers))
+            where_conditions.append(f"(number1 IN ({placeholders}) OR number2 IN ({placeholders}) OR number3 IN ({placeholders}) OR number4 IN ({placeholders}) OR number5 IN ({placeholders}) OR number6 IN ({placeholders}) OR number7 IN ({placeholders}))")
+            params.extend(numbers * 7)  # 每个号码位置都要检查
+        
+        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+        
+        # 直接查询，使用简化的逻辑
+        if year != 'all':
+            query = f"""
+                SELECT qishu, draw_time, number1, number2, number3, number4, number5, number6, number7
+                FROM antapp_lotterydraw 
+                WHERE qishu LIKE %s
+                ORDER BY qishu DESC 
+                LIMIT %s
+            """
+            params = [f"{year}%", limit]
+        else:
+            query = f"""
+                SELECT qishu, draw_time, number1, number2, number3, number4, number5, number6, number7
+                FROM antapp_lotterydraw 
+                ORDER BY qishu DESC 
+                LIMIT %s
+            """
+            params = [limit]
+        
+        # 添加调试信息
+        print(f"DEBUG: 查询条件: {where_clause}")
+        print(f"DEBUG: 查询参数: {params}")
+        print(f"DEBUG: 完整SQL: {query}")
+        
+        results = db_manager.execute_query(query, params)
+        
+        # 添加调试信息
+        print(f"DEBUG: 查询结果数量: {len(results)}")
+        if results:
+            print(f"DEBUG: 第一条期数: {results[0]['qishu']}")
+            print(f"DEBUG: 最后一条期数: {results[-1]['qishu']}")
+        
+        # 检查是否包含2025199期
+        has_199 = any(row['qishu'] == '2025199' for row in results)
+        print(f"DEBUG: 是否包含2025199期: {has_199}")
+        
+        # 格式化数据
+        formatted_data = []
+        for row in results:
+            numbers = [row['number1'], row['number2'], row['number3'], row['number4'], row['number5'], row['number6'], row['number7']]
+            lunar = solar_to_lunar(str(row['draw_time']))
+            lunar_str = ''
+            zodiac_year = None
+            if lunar:
+                lunar_str = f"{lunar['year']}年{'闰' if lunar['is_leap'] else ''}{lunar['month']}月{lunar['day']}日"
+                zodiac_year = lunar['year']
+            # 每个号码的生肖，强制用农历年查表
+            from config.zodiac_config import get_zodiac_by_number_and_year
+            zodiacs = [get_zodiac_by_number_and_year(num, zodiac_year) if zodiac_year else '' for num in numbers]
+            formatted_data.append({
+                'qishu': row['qishu'],
+                'draw_time': row['draw_time'],
+                'lunar_date': lunar_str,
+                'numbers': numbers,
+                'zodiacs': zodiacs,
+                'lunar_debug': lunar
+            })
+        
+        return jsonify({'success': True, 'data': formatted_data})
+    except Exception as e:
+        print(f"zodiac-records API错误: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/favorite-numbers', methods=['GET'])
+def api_get_favorite_numbers():
+    """获取所有关注号码组及统计"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        year = request.args.get('year', 'all')
+        position = int(request.args.get('position', 7))  # 1或7
+        # 获取所有关注号码组
+        favs = db_manager.execute_query("SELECT id, name, numbers FROM favorite_numbers ORDER BY id ASC")
+        # 获取开奖记录
+        if year == 'all':
+            records = db_manager.execute_query(f"SELECT qishu, number1, number2, number3, number4, number5, number6, number7 FROM antapp_lotterydraw ORDER BY qishu DESC")
+        else:
+            records = db_manager.execute_query(f"SELECT qishu, number1, number2, number3, number4, number5, number6, number7 FROM antapp_lotterydraw WHERE qishu LIKE %s ORDER BY qishu DESC", [f"{year}%"])
+        # 统计每组最大连中/最大遗漏和遗漏/连中详情
+        result = []
+        for fav in favs:
+            nums = [int(x) for x in fav['numbers'].split(',') if x.strip()]
+            # 最新期号和开奖号码
+            latest_qishu = records[0]['qishu'] if records else ''
+            latest_draw = ','.join(str(records[0][f'number{i}']) for i in range(1,8)) if records else ''
+            max_streak = 0
+            max_miss = 0
+            current_streak = 0
+            current_miss = 0
+            temp_streak = 0
+            temp_miss = 0
+            miss_details = []
+            hit_details = []
+            miss_start = None
+            miss_qishus = []
+            miss_draws = []
+            hit_start = None
+            hit_qishus = []
+            hit_draws = []
+            for idx, rec in enumerate(records):
+                n = rec[f'number{position}']
+                qishu = rec['qishu']
+                draw_numbers = ','.join(str(rec[f'number{i}']) for i in range(1,8))
+                if n in nums:
+                    temp_streak += 1
+                    max_streak = max(max_streak, temp_streak)
+                    if hit_start is None:
+                        hit_start = qishu
+                    hit_qishus.append(qishu)
+                    hit_draws.append(draw_numbers)
+                    if temp_miss > 0:
+                        miss_details.append({
+                            'start_qishu': miss_start,
+                            'end_qishu': records[idx-1]['qishu'] if idx > 0 else qishu,
+                            'length': temp_miss,
+                            'qishus': miss_qishus[:],
+                            'draws': miss_draws[:]
+                        })
+                        temp_miss = 0
+                        miss_qishus = []
+                        miss_draws = []
+                        miss_start = None
+                else:
+                    temp_miss += 1
+                    max_miss = max(max_miss, temp_miss)
+                    temp_streak = 0
+                    if miss_start is None:
+                        miss_start = qishu
+                    miss_qishus.append(qishu)
+                    miss_draws.append(draw_numbers)
+                    if temp_streak > 0:
+                        hit_details.append({
+                            'start_qishu': hit_start,
+                            'end_qishu': records[idx-1]['qishu'] if idx > 0 else qishu,
+                            'length': temp_streak,
+                            'qishus': hit_qishus[:],
+                            'draws': hit_draws[:]
+                        })
+                        temp_streak = 0
+                        hit_qishus = []
+                        hit_draws = []
+                        hit_start = None
+            if temp_miss > 0:
+                miss_details.append({
+                    'start_qishu': miss_start,
+                    'end_qishu': records[-1]['qishu'] if records else '',
+                    'length': temp_miss,
+                    'qishus': miss_qishus[:],
+                    'draws': miss_draws[:]
+                })
+            if temp_streak > 0:
+                hit_details.append({
+                    'start_qishu': hit_start,
+                    'end_qishu': records[-1]['qishu'] if records else '',
+                    'length': temp_streak,
+                    'qishus': hit_qishus[:],
+                    'draws': hit_draws[:]
+                })
+            current_streak = 0
+            current_miss = 0
+            for rec in records:
+                n = rec[f'number{position}']
+                if n in nums:
+                    if current_miss == 0:
+                        current_streak += 1
+                    else:
+                        break
+                else:
+                    if current_streak == 0:
+                        current_miss += 1
+                    else:
+                        break
+            # 先按期数从小到大排序，正向累加遗漏/连中
+            records_sorted = sorted(records, key=lambda x: x['qishu'])
+            temp_streak = 0
+            temp_miss = 0
+            max_streak = 0
+            max_miss = 0
+            all_details = []
+            for rec in records_sorted:
+                n = rec[f'number{position}']
+                qishu = rec['qishu']
+                draw_numbers = ','.join(str(rec[f'number{i}']) for i in range(1,8))
+                if n in nums:
+                    temp_streak += 1
+                    temp_miss = 0
+                else:
+                    temp_miss += 1
+                    temp_streak = 0
+                max_streak = max(max_streak, temp_streak)
+                max_miss = max(max_miss, temp_miss)
+                all_details.append({
+                    'qishu': qishu,
+                    'numbers': ','.join(str(x) for x in nums),
+                    'draw': str(n),  # 只显示判断遗漏用的号码
+                    'current_miss': temp_miss,
+                    'current_streak': temp_streak,
+                    'max_miss': max_miss,
+                    'max_streak': max_streak
+                })
+            # all_details 按期数从大到小排序
+            all_details.sort(key=lambda x: x['qishu'], reverse=True)
+            result.append({
+                'id': fav['id'],
+                'name': fav['name'],
+                'numbers': ','.join(str(x) for x in nums),
+                'max_streak': max_streak,
+                'max_miss': max_miss,
+                'current_streak': current_streak,
+                'current_miss': current_miss,
+                'all_details': all_details,
+                'latest_qishu': latest_qishu,
+                'latest_draw': latest_draw
+            })
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        print(f"favorite-numbers API错误: {str(e)}")
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/favorite-numbers', methods=['POST'])
+def api_add_favorite_number():
+    """添加关注号码组（支持多个号码，英文逗号分隔）"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        numbers = data.get('numbers', '').strip()
+        # 校验号码格式
+        if not name or not numbers:
+            return jsonify({'error': '参数错误'}), 400
+        nums = [x.strip() for x in numbers.split(',') if x.strip()]
+        if not nums or not all(x.isdigit() and 1 <= int(x) <= 49 for x in nums):
+            return jsonify({'error': '号码格式错误，必须为1-49的数字，用英文逗号隔开'}), 400
+        print(f"准备插入: name={name}, numbers={numbers}")
+        db_manager.execute_query("INSERT INTO favorite_numbers (name, numbers) VALUES (%s, %s)", [name, ','.join(nums)])
+        print("插入已执行")
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"add favorite-number API错误: {str(e)}")
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@data_bp.route('/favorite-numbers/<int:fid>', methods=['DELETE'])
+def api_delete_favorite_number(fid):
+    """删除关注号码组"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        db_manager.execute_query("DELETE FROM favorite_numbers WHERE id=%s", [fid])
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"delete favorite-number API错误: {str(e)}")
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/favorite-numbers/add', methods=['POST'])
+def api_add_favorite_number_separate():
+    """单独添加关注号码组（支持多个号码，英文逗号分隔）"""
+    if not get_database_status():
+        print("数据库不可用")
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        data = request.get_json()
+        print(f"收到添加请求: {data}")
+        name = data.get('name', '').strip()
+        numbers = data.get('numbers', '').strip()
+        print(f"参数解析: name={name}, numbers={numbers}")
+        # 校验号码格式
+        if not name or not numbers:
+            print("参数错误")
+            return jsonify({'error': '参数错误'}), 400
+        nums = [x.strip() for x in numbers.split(',') if x.strip()]
+        if not nums or not all(x.isdigit() and 1 <= int(x) <= 49 for x in nums):
+            print("号码格式错误")
+            return jsonify({'error': '号码格式错误，必须为1-49的数字，用英文逗号隔开'}), 400
+        print(f"准备插入: name={name}, numbers={','.join(nums)}")
+        db_manager.execute_query("INSERT INTO favorite_numbers (name, numbers) VALUES (%s, %s)", [name, ','.join(nums)])
+        print("插入已执行")
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"add favorite-number (separate) API错误: {str(e)}")
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500 
+
+@data_bp.route('/favorite-numbers/<int:fid>', methods=['PUT'])
+def api_update_favorite_number(fid):
+    """编辑关注号码组（支持多个号码，英文逗号分隔）"""
+    if not get_database_status():
+        return jsonify({'error': '数据库连接不可用'}), 503
+    try:
+        db_manager = get_db_manager()
+        data = request.get_json()
+        numbers = data.get('numbers', '').strip()
+        if not numbers:
+            return jsonify({'error': '参数错误'}), 400
+        nums = [x.strip() for x in numbers.split(',') if x.strip()]
+        if not nums or not all(x.isdigit() and 1 <= int(x) <= 49 for x in nums):
+            return jsonify({'error': '号码格式错误，必须为1-49的数字，用英文逗号隔开'}), 400
+        db_manager.execute_query("UPDATE favorite_numbers SET numbers=%s WHERE id=%s", [','.join(nums), fid])
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"update favorite-number API错误: {str(e)}")
+        import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500 
