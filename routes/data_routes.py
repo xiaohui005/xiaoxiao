@@ -828,6 +828,8 @@ def api_get_favorite_numbers():
             records = db_manager.execute_query(f"SELECT qishu, number1, number2, number3, number4, number5, number6, number7 FROM antapp_lotterydraw WHERE qishu LIKE %s ORDER BY qishu DESC", [f"{year}%"])
         # 统计每组最大连中/最大遗漏和遗漏/连中详情
         result = []
+        # 获取报警阈值
+        alert_threshold = getattr(AppConfig, 'FAVORITE_NUMBERS_ALERT_THRESHOLD', 1)
         for fav in favs:
             nums = [int(x) for x in fav['numbers'].split(',') if x.strip()]
             # 最新期号和开奖号码
@@ -950,6 +952,12 @@ def api_get_favorite_numbers():
                 })
             # all_details 按期数从大到小排序
             all_details.sort(key=lambda x: x['qishu'], reverse=True)
+            # --- 报警逻辑 ---
+            # 当前遗漏/连中大于最大遗漏/连中-阈值时报警
+            if (current_miss > max_miss - alert_threshold):
+                db_manager.add_bot_send_queue(f"关注号码组【{fav['name']}】区间分析结果 当前遗漏大于最大遗漏期数")
+            if (current_streak > max_streak - alert_threshold):
+                db_manager.add_bot_send_queue(f"关注号码组【{fav['name']}】区间分析结果 当前连中大于最大连中期数")
             result.append({
                 'id': fav['id'],
                 'name': fav['name'],
